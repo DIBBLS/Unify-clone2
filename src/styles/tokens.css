@@ -1,0 +1,53 @@
+/* Unify Learn design tokens.
+   Named by job, matching the Figma variable collection "Unify · Roles".
+   Screens use these roles, never raw hex, so dark mode (paused) can be a
+   second set of values later without touching any screen. */
+:root {
+  /* Brand */
+  --u-green: #50ff90;          /* headers, active tab, success moments */
+  --u-black: #0a0a0a;          /* text, dark cards, secondary buttons */
+  --u-amber: #fbbf24;          /* the ONE main action on each screen */
+  --u-red: #dc2626;            /* cancelled, destructive, now-line */
+
+  /* Surfaces */
+  --u-page: #f5f5f0;           /* page background */
+  --u-card: #ffffff;
+  --u-card-2: #f8f7f3;         /* sunken / segmented track */
+  --u-chip: #f0eee8;           /* neutral chip fill */
+  --u-border: #e0deda;
+  --u-hairline: #eeece6;
+
+  /* Text */
+  --u-text: #0a0a0a;
+  --u-text-2: #555555;         /* secondary */
+  --u-text-3: #999999;         /* labels, hints */
+  --u-on-dark: #ffffff;
+  --u-on-dark-2: #aaaaaa;
+
+  /* Status */
+  --u-good: #15803d;           /* green text on light */
+  --u-good-2: #16a34a;
+  --u-good-tint: #d3f9e1;      /* success / online banners */
+  --u-good-ink: #1f3a2b;       /* body text on good tint */
+  --u-warn-tint: #fef3c7;
+  --u-warn-ink: #b45309;
+  --u-bad-tint: #fde8e8;
+
+  /* Type */
+  --font-display: 'Bowlby One SC', 'Arial Black', system-ui, sans-serif;  /* big headlines, caps */
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;            /* everything else */
+  --font-wordmark: 'Playfair Display', Georgia, serif;                   /* "Unify Learn" only */
+  --font-math: 'STIX Two Text', 'Times New Roman', serif;                /* maths, italic */
+
+  /* Shape */
+  --r-card: 24px;
+  --r-row: 18px;
+  --r-btn: 28px;
+  --r-chip: 22px;
+  --r-sheet: 32px;
+  --btn-h: 55px;
+  --tap: 48px;
+  --shell: 430px;              /* phone frame width */
+  --gutter: 16px;
+  --tabbar-h: 84px;
+}
