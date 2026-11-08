@@ -1,0 +1,9 @@
+<!-- Supabase → Authentication → Emails → Templates.
+     Paste into BOTH "Magic Link" and "Confirm signup". Subject: Your Unify code: {{ .Token }} -->
+<div style="font-family:Inter,Arial,sans-serif;max-width:440px;margin:0 auto;padding:28px 24px;background:#f5f5f0;border-radius:20px;color:#0a0a0a">
+  <div style="font-family:Georgia,serif;font-weight:700;font-size:20px">Unify Learn</div>
+  <h1 style="font-size:22px;margin:22px 0 8px">Your code</h1>
+  <p style="font-size:15px;line-height:1.5;margin:0 0 18px;color:#333">Type this code in the Unify app. It works for the next hour, once.</p>
+  <div style="font-size:34px;font-weight:800;letter-spacing:8px;background:#0a0a0a;color:#50ff90;border-radius:16px;padding:16px 0;text-align:center">{{ .Token }}</div>
+  <p style="font-size:13px;line-height:1.5;margin:18px 0 0;color:#777">You're getting this because someone used {{ .Email }} on Unify Learn. If that wasn't you, ignore this email.</p>
+</div>

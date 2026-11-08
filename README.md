@@ -31,8 +31,9 @@ class feed, contributor studio, lecturer timetable / posts / Me. These need the 
 2. **Supabase → Authentication:**
    - *Sign In / Providers → Email:* turn **Confirm email off** until custom SMTP is set up (step 5).
    - *URL Configuration:* Site URL = your Vercel URL (e.g. `https://unify-learn.vercel.app`); Redirect URLs: add `https://unify-learn.vercel.app/**`.
-   - *Emails → Templates:* in **Magic Link** and **Confirm signup**, show the code, e.g. `<h2>Your Unify code</h2><p>Enter this code in the app: <b>{{ .Token }}</b></p>`.
-     Claiming a name types this 6-digit code; without `{{ .Token }}` students only get a link.
+   - *Emails → Templates:* paste [`supabase/email-templates/code.html`](supabase/email-templates/code.html) into **Magic Link** and
+     **Confirm signup** (subject `Your Unify code: {{ .Token }}`), and [`reset-password.html`](supabase/email-templates/reset-password.html)
+     into **Reset Password**. Claiming a name types the 6-digit code; without `{{ .Token }}` students only get a link.
 3. **Vercel:** Add New → Project → import `DIBBLS/Unify-clone2` (framework: Vite). Environment variables:
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from Supabase → Project Settings → API. Never the `service_role` key.
 4. **Make yourself admin:** sign up in the live app, then in the SQL editor:
@@ -51,7 +52,7 @@ Optional: `VITE_GOOGLE_SIGN_IN=true` shows "Continue with Google" for students o
 npm install
 cp .env.example .env.local   # fill in the two values, or leave empty for the gallery
 npm run dev                  # http://localhost:3001
-npm test                     # 67 tests: database rules (in-process Postgres), class-list parsing, streaks, setup.sql in sync
+npm test                     # database rules (in-process Postgres), class-list parsing, streaks, setup.sql in sync
 npm run setup-sql            # rebuild supabase/setup.sql after editing the migration or seed
 ```
 
