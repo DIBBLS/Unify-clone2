@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { Check } from 'lucide-react';
 
 type Div = { children?: ReactNode; className?: string; style?: CSSProperties; onClick?: () => void };
@@ -38,6 +38,7 @@ export function Card({ children, tone = 'light', pad = 18, gap = 12, style, clas
       className={`card card--${tone} stack ${className}`}
       style={{ padding: pad, gap, cursor: onClick ? 'pointer' : undefined, ...style }}
       onClick={onClick}
+      {...(onClick ? { role: 'button', tabIndex: 0, onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); e.currentTarget.click(); } } } : {})}
     >
       {children}
     </div>
@@ -53,7 +54,8 @@ export function ListRow({ title, sub, leading, right, onClick, titleStyle }: {
   title: ReactNode; sub?: ReactNode; leading?: ReactNode; right?: ReactNode; onClick?: () => void; titleStyle?: CSSProperties;
 }) {
   return (
-    <div className="row" style={{ gap: 12, padding: '13px 16px', cursor: onClick ? 'pointer' : undefined }} onClick={onClick}>
+    <div className="row" style={{ gap: 12, padding: '13px 16px', cursor: onClick ? 'pointer' : undefined }} onClick={onClick}
+      {...(onClick ? { role: 'button', tabIndex: 0, onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onClick(); } } } : {})}>
       {leading}
       <div className="grow stack" style={{ gap: 2 }}>
         <div className="t-15 w-6" style={titleStyle}>{title}</div>

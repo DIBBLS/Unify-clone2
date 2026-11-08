@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Camera, Check, Download, Keyboard, X } from 'lucide-react';
+import { AlertTriangle, Camera, Check, ChevronRight, Download, Keyboard, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Screen, TopBar, BottomActions } from '../components/chrome';
 import { Button, Card, Display, Label, ListCard, ListRow, Pill, ProgressBar } from '../components/ui';
@@ -265,20 +265,60 @@ export function LiveScanner() {
 }
 
 /* L16 · the register for one session (lecturers and HOCs) */
+/* Every register you can see: an HOC's class, or a lecturer's courses. Newest first. */
+type RegRow = { id: string; opened_at: string; closed_at: string | null; venue: string | null; courses: { code: string } | null; classes: { level: number; department_code: string } | null; attendance_records: { count: number }[] };
+const Arrow = () => <ChevronRight size={18} color="#8a8a8a" />;
+function RegisterList() {
+  const navigate = useNavigate();
+  const { profile, hocOf } = useAuth();
+  const [rows, setRows] = useState<RegRow[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!profile) return;
+    (async () => {
+      let q = supabase.from('attendance_sessions')
+        .select('id,opened_at,closed_at,venue,courses(code),classes(level,department_code),attendance_records(count)')
+        .order('opened_at', { ascending: false }).limit(100);
+      if (profile.role === 'lecturer') {
+        const { data: mine } = await supabase.from('course_lecturers').select('course_id').eq('user_id', profile.id).eq('confirmed', true);
+        q = q.in('course_id', ((mine ?? []) as { course_id: string }[]).map((m) => m.course_id));
+      } else if (profile.role !== 'admin') q = q.in('class_id', hocOf);
+      const { data, error } = await q;
+      if (error) setErr(friendly(error.message)); else setRows((data ?? []) as unknown as RegRow[]);
+    })();
+  }, [profile, hocOf]);
+  const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  return (
+    <Screen>
+      <TopBar title="Registers" />
+      <div className="stack pad" style={{ gap: 12, paddingBottom: 28 }}>
+        <Display size={30}>EVERY REGISTER</Display>
+        {err && <Note>{err}</Note>}
+        <ListCard>
+          {rows === null && !err && <ListRow title="Loading…" />}
+          {rows?.length === 0 && <ListRow title="No attendance taken yet" sub="Registers show here after the first scan." />}
+          {rows?.map((r) => (
+            <ListRow key={r.id} title={`${r.courses?.code ?? 'Course'}${r.classes ? ` · ${r.classes.level}L ${r.classes.department_code}` : ''}`}
+              sub={`${when(r.opened_at)}${r.venue ? ` · ${r.venue}` : ''} · ${r.attendance_records?.[0]?.count ?? 0} present`}
+              right={r.closed_at ? <Arrow /> : <Pill tone="good">Live</Pill>} onClick={() => navigate(`/screens/L16?session=${r.id}`)} />
+          ))}
+        </ListCard>
+      </div>
+    </Screen>
+  );
+}
+
 export function LiveRegister() {
   const [params] = useSearchParams();
+  const sessionId = params.get('session') ?? '';
+  return sessionId ? <RegisterView key={sessionId} sessionId={sessionId} /> : <RegisterList />;
+}
+
+function RegisterView({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
-  const [sessionId, setSessionId] = useState(params.get('session') ?? '');
   const [sum, setSum] = useState<Summary | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
-    if (sessionId) return;
-    supabase.from('attendance_sessions').select('id').order('opened_at', { ascending: false }).limit(1).then(({ data }) => {
-      if (data?.[0]) setSessionId(data[0].id); else setErr('No attendance has been taken yet.');
-    });
-  }, [sessionId]);
-  useEffect(() => {
-    if (!sessionId) return;
     supabase.rpc('session_attendance', { p_session: sessionId }).then(({ data, error }) => { if (error) setErr(friendly(error.message)); else setSum(data as Summary); });
   }, [sessionId]);
   const csv = () => {
