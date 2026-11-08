@@ -850,7 +850,9 @@ declare s attendance_sessions; v_entry uuid; v_matric text := regexp_replace(coa
 begin
   select * into s from attendance_sessions where id = p_session;
   if s.id is null or s.closed_at is not null then return jsonb_build_object('status', 'closed'); end if;
-  if not is_hoc(s.class_id) then return jsonb_build_object('status', 'not_allowed'); end if;
+  if not (is_hoc(s.class_id) or exists (select 1 from course_lecturers where course_id = s.course_id and user_id = auth.uid() and confirmed)) then
+    return jsonb_build_object('status', 'not_allowed');
+  end if;
   -- anyone on this class's list, claimed or not (students without a phone still count)
   select id into v_entry from class_list_entries where class_id = s.class_id and matric = v_matric;
   if v_entry is null then

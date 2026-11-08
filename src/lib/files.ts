@@ -37,8 +37,9 @@ export async function readClassListFile(file: File): Promise<ReadResult> {
     return { kind: 'text', text, note: '' };
   }
   if (e === 'pdf') {
-    const pdfjs = await import('pdfjs-dist');
-    const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+    // The legacy build runs on older phones too (the modern one needs Chrome 119+ / Safari 17.4+).
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const worker = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
     pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
     const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
     const lines: string[] = [];

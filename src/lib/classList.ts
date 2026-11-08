@@ -2,9 +2,10 @@
    Pure functions only (no DOM, no network), so every rule here is unit-tested. */
 
 export type Student = { surname: string; first_name: string; middle_name: string; matric: string };
-export type Target = 'surname' | 'first_name' | 'middle_name' | 'matric' | 'full_name' | 'ignore';
+export type Target = 'surname' | 'first_name' | 'middle_name' | 'other_names' | 'matric' | 'full_name' | 'ignore';
 export const TARGET_LABEL: Record<Target, string> = {
-  surname: 'Surname', first_name: 'First name', middle_name: 'Middle name', matric: 'Matric number', full_name: 'Full name', ignore: 'Ignore',
+  surname: 'Surname', first_name: 'First name', middle_name: 'Middle name', other_names: 'Other names (first + middle)',
+  matric: 'Matric number', full_name: 'Full name', ignore: 'Ignore',
 };
 
 const MATRIC_RE = /^\d{6,12}$/;
@@ -20,7 +21,9 @@ export function guessTarget(heading: string, values: unknown[]): Target {
   if (/\b(matric|reg(istration)?|mat no|student id|id no)\b/.test(h)) return 'matric';
   if (/\b(surname|last name|family name)\b/.test(h)) return 'surname';
   if (/\b(first name|firstname|given name|forename)\b/.test(h)) return 'first_name';
-  if (/\b(middle name|other name|other names|middle)\b/.test(h)) return 'middle_name';
+  // On Nigerian lists "Other names" is the first name followed by any middle names.
+  if (/\b(other names?|othernames?|forenames|given names)\b/.test(h)) return 'other_names';
+  if (/\b(middle name|middle)\b/.test(h)) return 'middle_name';
   if (/^(s ?n|no|sn|serial|s no|phone|gsm|email|e mail|sex|gender|dept|department|level|signature|remark|remarks)$/.test(h) || /\b(phone|email|signature|gender)\b/.test(h)) return 'ignore';
   if (/\b(name|names|full name|student name|student)\b/.test(h)) return 'full_name';
   // No useful heading: look at the values.
@@ -65,6 +68,8 @@ export function guessMapping(matrix: unknown[][]): { header: boolean; mapping: T
     seen.add(t);
     return t;
   });
+  // With its own first-name column, "Other names" is just the middle names.
+  if (final.includes('first_name') && final.includes('other_names')) final[final.indexOf('other_names')] = 'middle_name';
   // Separate name columns win over a full-name column.
   if (final.includes('surname') && final.includes('full_name')) final[final.indexOf('full_name')] = 'ignore';
   return { header, mapping: final, headings };
@@ -102,29 +107,45 @@ export function rowsFromMatrix(matrix: unknown[][], mapping: Target[], header: b
       const v = clean(r[c]);
       if (!v || t === 'ignore') return;
       if (t === 'full_name') Object.assign(s, { ...splitFullName(v), ...(s.surname ? { surname: s.surname } : {}) });
-      else s[t] = s[t] ? `${s[t]} ${v}` : v;
+      else if (t === 'other_names') {
+        const [first = '', ...mid] = v.split(' ').filter(Boolean);
+        if (s.first_name) s.middle_name = [s.middle_name, v].filter(Boolean).join(' ');
+        else { s.first_name = first; s.middle_name = [s.middle_name, ...mid].filter(Boolean).join(' '); }
+      } else s[t] = s[t] ? `${s[t]} ${v}` : v;
     });
+    // A name only in the middle column: its first word is the first name.
+    if (!s.first_name && s.middle_name) { const [f, ...m] = s.middle_name.split(' '); s.first_name = f; s.middle_name = m.join(' '); }
     if (!s.surname && !s.first_name && !s.matric) continue;
     out.push(tidy(s));
   }
   return out;
 }
 
-/** Pasted text: one student per line, in any order. The matric is the 6–12 digit number; serial numbers are skipped. */
+/** Pasted text (and PDF lines): one student per line, in any order. The matric is the 6–12 digit number;
+    serial numbers are skipped, and title lines above the first student are dropped. */
+const SESSION_RE = /^(19|20)\d{2}\s*\/\s*(19|20)\d{2}$/; // "2026/2027" is a session, not a matric
+function findMatric(line: string): string | null {
+  const plain = line.match(/(?<![\d/])\d{6,12}(?![\d/])/); // the usual case: one unbroken number
+  if (plain) return plain[0];
+  const spaced = line.match(/\b\d[\d\s/-]{4,14}\d\b/g)?.find((m) => !SESSION_RE.test(m.trim()) && looksLikeMatric(m));
+  return spaced ?? null;
+}
 export function parsePasted(text: string): Student[] {
-  const out: Student[] = [];
+  const out: { student: Student; hasMatric: boolean }[] = [];
   for (const raw of text.split(/\r?\n/)) {
     let line = raw.replace(/\t/g, ' ').trim();
     if (!line) continue;
-    line = line.replace(/^\d{1,4}[.)]\s*/, '').replace(/^\d{1,4}\s+(?=\D)/, ''); // "12. ...", "12) ...", "12 ADEBAYO ..."
-    const m = line.match(/\b\d[\d\s/-]{4,14}\d\b/);
-    const matric = m && looksLikeMatric(m[0]) ? digits(m[0]) : '';
-    const rest = clean(matric && m ? line.replace(m[0], ' ') : line).replace(/^[-–:|,]+|[-–:|,]+$/g, '').trim();
+    // "12. ...", "12) ...", "12 ADEBAYO ...", and "12 220801234 ADEBAYO ..." (serial then matric)
+    line = line.replace(/^\d{1,4}[.)]\s*/, '').replace(/^\d{1,4}\s+(?=\D)/, '').replace(/^\d{1,4}\s+(?=\d{6,12}\b)/, '');
+    const m = findMatric(line);
+    const matric = m ? digits(m) : '';
+    const rest = clean(m ? line.replace(m, ' ') : line).replace(/^[-–:|,]+|[-–:|,]+$/g, '').trim();
     if (!rest && !matric) continue;
     if (!matric && /^(s\/?n|name|names|surname|matric)\b/i.test(rest)) continue; // heading line
-    out.push(tidy({ ...splitFullName(rest), matric }));
+    out.push({ student: tidy({ ...splitFullName(rest), matric }), hasMatric: Boolean(matric) });
   }
-  return out;
+  const first = out.findIndex((r) => r.hasMatric);
+  return (first > 0 ? out.slice(first) : out).map((r) => r.student);
 }
 
 export type Issue = 'duplicate' | 'matric_length' | 'no_matric' | 'no_surname' | 'no_first_name';

@@ -348,6 +348,15 @@ describe('attendance', () => {
     expect((await db.query('select session_id from attendance_records')).rows).toHaveLength(1);
   });
 
+  it('the confirmed lecturer can type a matric too; nobody else can', async () => {
+    await db.as(lecturer);
+    expect(await rpc(db, 'record_typed', { p_session: sessionId, p_matric: '220801117' })).toMatchObject({ status: 'already' });
+    await db.as(outsider);
+    expect(await rpc(db, 'record_typed', { p_session: sessionId, p_matric: '220801117' })).toMatchObject({ status: 'not_allowed' });
+    await db.as(kunle);
+    expect(await rpc(db, 'record_typed', { p_session: sessionId, p_matric: '220801234' })).toMatchObject({ status: 'not_allowed' });
+  });
+
   it('closing the scan stops new scans', async () => {
     await db.as(lecturer);
     await rpc(db, 'close_attendance', { p_session: sessionId });

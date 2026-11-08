@@ -115,3 +115,33 @@ describe('trimToTable', () => {
     expect(trimToTable(m)).toEqual([['220801001', 'ABIODUN Mariam']]);
   });
 });
+
+describe('lists from department PDFs and Word files', () => {
+  it('does not glue the serial number onto the matric', () => {
+    expect(parsePasted('1 230501001 ADEYEMI Bola Grace')[0]).toEqual({ surname: 'ADEYEMI', first_name: 'Bola', middle_name: 'Grace', matric: '230501001' });
+    expect(parsePasted('12 230501012 BAKARE Tunde')[0].matric).toBe('230501012');
+  });
+  it('drops title lines above the first student, including the session year', () => {
+    const rows = parsePasted('LAGOS STATE UNIVERSITY\nDEPARTMENT OF CHEMICAL ENGINEERING · 300 LEVEL · 2026/2027\nS/N MATRIC NO SURNAME OTHER NAMES\n1 230501001 ADEYEMI Bola Grace\n2 230501002 BAKARE Tunde');
+    expect(rows.map((r) => r.matric)).toEqual(['230501001', '230501002']);
+  });
+  it('keeps a student with a missing matric after the list has started, so the HOC can fix it', () => {
+    const rows = parsePasted('230501001 ADEYEMI Bola\nCHUKWU Ngozi');
+    expect(rows).toHaveLength(2);
+    expect(rows[1].matric).toBe('');
+  });
+  it('reads an "Other names" column as first name then middle names', () => {
+    const m = [['S/N', 'MATRIC NO', 'SURNAME', 'OTHER NAMES'], ['1', '230501001', 'ADEYEMI', 'Bola Grace'], ['2', '230501002', 'BAKARE', 'Tunde']];
+    const g = guessMapping(m);
+    expect(g.mapping).toEqual(['ignore', 'matric', 'surname', 'other_names']);
+    expect(rowsFromMatrix(m, g.mapping, g.header)).toEqual([
+      { surname: 'ADEYEMI', first_name: 'Bola', middle_name: 'Grace', matric: '230501001' },
+      { surname: 'BAKARE', first_name: 'Tunde', middle_name: '', matric: '230501002' },
+    ]);
+  });
+  it('a separate middle-name column still works', () => {
+    const m = [['Matric', 'Surname', 'First name', 'Middle name'], ['230501001', 'ADEYEMI', 'Bola', 'Grace']];
+    const g = guessMapping(m);
+    expect(rowsFromMatrix(m, g.mapping, g.header)[0]).toEqual({ surname: 'ADEYEMI', first_name: 'Bola', middle_name: 'Grace', matric: '230501001' });
+  });
+});
