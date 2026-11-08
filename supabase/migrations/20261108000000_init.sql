@@ -848,6 +848,27 @@ begin
   else delete from course_lecturers where course_id = p_course and user_id = p_user; end if;
 end $$;
 
+-- --- HOC views that need names from other people's profiles
+create or replace function public.class_priority_students(p_class uuid) returns setof jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not can_see_class(p_class) then raise exception 'Only HOCs and lecturers of this class'; end if;
+  return query select jsonb_build_object('registration', pr.id, 'status', pr.status, 'course', c.code,
+      'name', e.surname || ' ' || e.first_name, 'matric', e.matric, 'from_class', k.level || 'L ' || k.department_code)
+    from priority_registrations pr join courses c on c.id = pr.course_id
+    join claims cl on cl.user_id = pr.user_id join class_list_entries e on e.id = cl.entry_id join classes k on k.id = e.class_id
+    where pr.class_id = p_class and pr.status = 'approved' order by e.surname;
+end $$;
+
+create or replace function public.class_history(p_class uuid) returns setof jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not can_see_class(p_class) then raise exception 'Only HOCs and lecturers of this class'; end if;
+  return query select jsonb_build_object('action', le.action, 'detail', le.detail, 'at', le.created_at,
+      'by', case when le.actor = auth.uid() then 'You' else coalesce(p.display_name, 'Someone') end)
+    from list_events le left join profiles p on p.id = le.actor where le.class_id = p_class order by le.created_at desc limit 200;
+end $$;
+
 -- ============================================================ grants
 revoke execute on all functions in schema public from public, anon;
 grant execute on all functions in schema public to authenticated;

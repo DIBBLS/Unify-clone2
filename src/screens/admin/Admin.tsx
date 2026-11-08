@@ -9,7 +9,7 @@ import { useGo } from '../../components/nav';
 
 const NAV: [string, string, string?][] = [['Overview', 'AD01'], ['HOC requests', 'AD02', '5'], ['Class lists', 'AD03', '17'], ['Reports', 'AD04', '12'], ['Contributors', ''], ['Lecturers', ''], ['Courses', '']];
 
-function Shell({ active, title, sub, children }: { active: string; title: string; sub: string; children: ReactNode }) {
+export function Shell({ active, title, sub, children }: { active: string; title: string; sub: string; children: ReactNode }) {
   const go = useGo();
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--u-page)', width: '100%' }}>
@@ -41,7 +41,7 @@ function Shell({ active, title, sub, children }: { active: string; title: string
   );
 }
 
-function Table({ cols, rows, highlight }: { cols: string[]; rows: ReactNode[][]; highlight?: number }) {
+export function Table({ cols, rows, highlight }: { cols: string[]; rows: ReactNode[][]; highlight?: number }) {
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
@@ -55,7 +55,7 @@ function Table({ cols, rows, highlight }: { cols: string[]; rows: ReactNode[][];
     </div>
   );
 }
-const SmallBtn = ({ children, dark, green, onClick }: { children: ReactNode; dark?: boolean; green?: boolean; onClick?: () => void }) => (
+export const SmallBtn = ({ children, dark, green, onClick }: { children: ReactNode; dark?: boolean; green?: boolean; onClick?: () => void }) => (
   <button onClick={onClick} className="t-13 w-6" style={{ padding: '8px 14px', borderRadius: 20, whiteSpace: 'nowrap', background: dark ? '#0a0a0a' : green ? 'var(--u-green)' : '#fff', color: dark ? '#fff' : '#0a0a0a', border: dark || green ? 0 : '1px solid var(--u-border)' }}>{children}</button>
 );
 

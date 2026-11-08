@@ -9,7 +9,15 @@ import { courses, student } from '../../data/sample';
 /* ===== Shared Home pieces ===== */
 
 /** Green hero: wordmark, streak, greeting, department pill, semester tracker, Box Boy holding the target. */
-export function HomeHero({ target, hidden, week = student.semesterWeek, banner }: { target: number | null; hidden?: boolean; week?: number; banner?: ReactNode }) {
+/** Good morning / afternoon / evening, by the phone's clock. */
+export function greeting(d = new Date()) {
+  const h = d.getHours();
+  return h < 12 ? 'GOOD MORNING' : h < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
+}
+
+export function HomeHero({ target, hidden, week = student.semesterWeek, banner, name = student.firstName, classText = `${student.department} · ${student.level}`, streak = student.streak }: {
+  target: number | null; hidden?: boolean; week?: number; banner?: ReactNode; name?: string; classText?: string; streak?: number;
+}) {
   const go = useGo();
   return (
     <div style={{ background: 'var(--u-green)', padding: '12px 16px 72px', position: 'relative' }}>
@@ -17,14 +25,14 @@ export function HomeHero({ target, hidden, week = student.semesterWeek, banner }
         <Wordmark />
         <span className="row" style={{ gap: 4, background: 'var(--u-amber)', borderRadius: 28, padding: '5px 10px 5px 5px' }}>
           <span style={{ width: 27, height: 24, borderRadius: 12, background: '#0a0a0a', display: 'grid', placeItems: 'center' }}><Flame size={14} color="#fbbf24" fill="#fbbf24" /></span>
-          <span className="display" style={{ fontSize: 15 }}>{student.streak}D</span>
+          <span className="display" style={{ fontSize: 15 }}>{streak}D</span>
         </span>
       </div>
       {banner}
-      <Display size={34} style={{ marginTop: 14, maxWidth: 300 }}>{`GOOD MORNING,\n${student.firstName.toUpperCase()}.`}</Display>
+      <Display size={34} style={{ marginTop: 14, maxWidth: 300 }}>{`${greeting()},\n${name.toUpperCase()}.`}</Display>
       <div className="stack" style={{ gap: 10, marginTop: 10 }}>
         <span className="eyebrow" style={{ alignSelf: 'flex-start', background: '#101714', color: 'var(--u-green)', borderRadius: 15, padding: '8px 12px', fontSize: 11 }}>
-          {student.department} · {student.level}
+          {classText}
         </span>
         {/* Replaces "Week 1 starts today · first class 8 AM": the hero shows where you are in the semester. */}
         <SemesterWeek week={week} />
@@ -34,7 +42,7 @@ export function HomeHero({ target, hidden, week = student.semesterWeek, banner }
         <BoxBoy pose="targetSign" width={123} />
         <span className="stack" style={{ position: 'absolute', left: 10, top: 70, width: 100, background: '#101714', borderRadius: 16, padding: '6px 10px', alignItems: 'center' }}>
           <span className="t-12 w-7" style={{ color: '#fbbf24', fontSize: 10 }}>Your target</span>
-          <span className="display" style={{ color: '#fbbf24', fontSize: 24 }}>{hidden ? '•.••' : (target ?? 0).toFixed(2)}</span>
+          <span className="display" style={{ color: '#fbbf24', fontSize: 24 }}>{hidden ? '•.••' : target == null ? 'SET' : target.toFixed(2)}</span>
           <span style={{ position: 'absolute', right: -6, top: -6, width: 18, height: 18, borderRadius: 9, background: '#0a0a0a', display: 'grid', placeItems: 'center' }}><Pencil size={9} color="#50ff90" /></span>
         </span>
       </button>

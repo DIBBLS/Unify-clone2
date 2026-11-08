@@ -298,6 +298,19 @@ describe('attendance', () => {
   });
 });
 
+describe('HOC views', () => {
+  it('lists approved priority students and the history with names, for HOCs only', async () => {
+    await db.as(hoc);
+    const pri = (await db.query<{ r: { name: string; from_class: string; course: string } }>(`select public.class_priority_students($1) as r`, [classId])).rows.map((x) => x.r);
+    expect(pri).toEqual([expect.objectContaining({ name: 'OKAFOR Ada', from_class: '400L ECE', course: 'MEE 352' })]);
+    const hist = (await db.query<{ r: { by: string; action: string } }>(`select public.class_history($1) as r`, [classId])).rows.map((x) => x.r);
+    expect(hist.length).toBeGreaterThan(3);
+    expect(hist.every((h) => h.by === 'You')).toBe(true);
+    await db.as(joshua);
+    await expect(db.query(`select public.class_history($1)`, [classId])).rejects.toThrow(/Only HOCs/);
+  });
+});
+
 describe('progress', () => {
   it('quiz attempts, streaks and CGPA plans are private to each student', async () => {
     await db.as(joshua);

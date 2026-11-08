@@ -7,7 +7,7 @@ import { useGo } from '../../components/nav';
 import { student } from '../../data/sample';
 
 /* Poster layout: big coloured poster on top, a short sheet with the action at the bottom (S02–S05, S12, S13). */
-function Poster({ bg, sheetBg, poster, sheet }: { bg: string; sheetBg: string; poster: ReactNode; sheet: ReactNode }) {
+export function Poster({ bg, sheetBg, poster, sheet }: { bg: string; sheetBg: string; poster: ReactNode; sheet: ReactNode }) {
   return (
     <Screen bg={sheetBg} style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ background: bg, flex: 1, minHeight: 560, position: 'relative', overflow: 'hidden', padding: '20px 20px 0', borderRadius: '0 0 32px 32px' }}>{poster}</div>
@@ -15,7 +15,7 @@ function Poster({ bg, sheetBg, poster, sheet }: { bg: string; sheetBg: string; p
     </Screen>
   );
 }
-function PosterTop({ step, dark }: { step?: number; dark?: boolean }) {
+export function PosterTop({ step, dark }: { step?: number; dark?: boolean }) {
   return (
     <div className="row between">
       <Wordmark color={dark ? '#fff' : undefined} />
@@ -23,8 +23,8 @@ function PosterTop({ step, dark }: { step?: number; dark?: boolean }) {
     </div>
   );
 }
-const Next = ({ label = 'Next', variant = 'amber' as const, onClick }: { label?: string; variant?: 'amber' | 'dark'; onClick: () => void }) => (
-  <Button variant={variant} onClick={onClick}>{label} <ArrowRight size={18} /></Button>
+export const Next = ({ label = 'Next', variant = 'amber' as const, onClick, disabled }: { label?: string; variant?: 'amber' | 'dark'; onClick: () => void; disabled?: boolean }) => (
+  <Button variant={variant} onClick={onClick} disabled={disabled}>{label} <ArrowRight size={18} /></Button>
 );
 
 /* S01 · Splash */
@@ -135,7 +135,7 @@ export function S05Welcome() {
 }
 
 /* Form-step layout: green band with headline, then the sheet. */
-function FormStep({ step, title, titleSize = 40, intro, children, actions, pose }: {
+export function FormStep({ step, title, titleSize = 40, intro, children, actions, pose }: {
   step: number; title: string; titleSize?: number; intro: string; children: ReactNode; actions: ReactNode; pose?: Pose;
 }) {
   return (
@@ -235,11 +235,11 @@ const GOALS = [
   ['Study better with others', 'Talking it through helps me learn'],
   ['Balance school with other things', 'Work, business, projects, leadership'],
 ];
-export function S09Goal() {
+export function S09Goal({ onChoose }: { onChoose?: (goal: string) => Promise<void> } = {}) {
   const go = useGo();
   const [goal, setGoal] = useState(0);
   return (
-    <FormStep step={3} title={'WHAT ARE YOU\nWORKING\nTOWARDS?'} intro="Pick one for this semester. We'll start you in the right place." actions={<Next label="Continue" onClick={() => go('S10')} />}>
+    <FormStep step={3} title={'WHAT ARE YOU\nWORKING\nTOWARDS?'} intro="Pick one for this semester. We'll start you in the right place." actions={<Next label="Continue" onClick={async () => { await onChoose?.(GOALS[goal][0]).catch(() => undefined); go('S10'); }} />}>
       <div className="stack" style={{ gap: 10 }}>
         {GOALS.map(([t, s], i) => (
           <button key={t} onClick={() => setGoal(i)} className="row" style={{ gap: 12, padding: '14px 16px', borderRadius: 18, background: '#fff', border: `1.5px solid ${goal === i ? '#0a0a0a' : 'var(--u-border)'}`, textAlign: 'left' }}>
@@ -282,7 +282,7 @@ export function S10Rhythm() {
 /* S11 · 7d Pick your Box Boy: curved carousel.
    The selected avatar is big in the centre; neighbours shrink and fade along a curve.
    Swipe or tap a neighbour to move. The persona and traits show underneath. */
-export function S11PickBoxBoy() {
+export function S11PickBoxBoy({ onChoose }: { onChoose?: (persona: string) => Promise<void> } = {}) {
   const go = useGo();
   const [idx, setIdx] = useState(0);
   const [story, setStory] = useState(false);
@@ -292,7 +292,7 @@ export function S11PickBoxBoy() {
   const p = PERSONAS[idx];
   return (
     <FormStep step={3} title={'PICK YOUR\nBOX BOY'} intro="Swipe to meet them. He's your profile picture, and you can change him any time in Me."
-      actions={<Next label="This is me" onClick={() => go('S12')} />}>
+      actions={<Next label="This is me" onClick={async () => { await onChoose?.(p.key).catch(() => undefined); go('S12'); }} />}>
       <div
         className="no-select"
         style={{ position: 'relative', height: 266, margin: '0 -16px', overflow: 'hidden', touchAction: 'pan-y' }}

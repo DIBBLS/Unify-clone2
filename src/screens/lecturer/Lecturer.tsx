@@ -124,7 +124,7 @@ export function L01Welcome() {
       <BottomActions tone="green">
         <Button variant="dark" onClick={() => go('L02')}>Create a lecturer account</Button>
         <Button variant="white" onClick={() => go('L02')}><img src="/boxboy/google.png" alt="" width={18} height={18} /> Continue with Google</Button>
-        <button className="t-13 w-6">Already have an account?</button>
+        <button className="t-13 w-6" onClick={() => go('LOGIN')}>Already have an account? Log in</button>
       </BottomActions>
     </Screen>
   );
