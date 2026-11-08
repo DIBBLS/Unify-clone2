@@ -18,3 +18,12 @@ export function streakLength(days: Iterable<string>, today = new Date()): number
 }
 
 export const todayIso = () => iso(new Date());
+
+/** Which week of the semester today is, from the date the admin set. null until set or before it starts. */
+export function semesterWeek(startsOn: string | null, weeks: number, today = new Date()): number | null {
+  if (!startsOn) return null;
+  const start = new Date(`${startsOn}T00:00:00`);
+  const days = Math.floor((today.getTime() - start.getTime()) / 86400000);
+  if (days < 0) return null;
+  return Math.min(weeks, Math.floor(days / 7) + 1);
+}

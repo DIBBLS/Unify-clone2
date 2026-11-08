@@ -5,9 +5,9 @@ import { Button, Checkbox, Chip, Chips, Display } from '../components/ui';
 import { BoxBoy, Bubble } from '../components/brand';
 import { useGo } from '../components/nav';
 import { EMAIL_RE, Note, SelectInput, TextInput, useAction } from '../components/form';
-import { FormStep, Next, Poster, PosterTop, S09Goal, S11PickBoxBoy } from '../screens/student/Onboarding';
+import { FormStep, Next, Poster, PosterTop, S09Goal, S10Rhythm, S11PickBoxBoy, S12Push, S13FirstClass } from '../screens/student/Onboarding';
 import { supabase, rpc, friendly } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
+import { useAuth, firstName } from '../lib/auth';
 
 const googleEnabled = import.meta.env.VITE_GOOGLE_SIGN_IN === 'true';
 const origin = () => window.location.origin;
@@ -69,12 +69,11 @@ export function SignUpForm({ role = 'student', onDone }: { role?: 'student' | 'l
     run(async () => {
       const { data, error: e } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(), password,
-        options: { data: { display_name: name.trim() }, emailRedirectTo: origin() },
+        options: { data: { display_name: name.trim(), role }, emailRedirectTo: origin() },
       });
       if (e) throw new Error(/registered|exists/i.test(e.message) ? 'There is already an account with this email. Log in instead.' : friendly(e.message));
       if (data.user && data.user.identities && data.user.identities.length === 0) throw new Error('There is already an account with this email. Log in instead.');
       if (!data.session) { setCheckEmail(true); return; }
-      if (role === 'lecturer') await supabase.from('profiles').update({ role: 'lecturer' }).eq('id', data.session.user.id);
       onDone();
     });
   };
@@ -240,6 +239,22 @@ export function LiveGoal() {
   const { updateProfile } = useAuth();
   return <S09Goal onChoose={(goal) => updateProfile({ goal })} />;
 }
+export function LiveRhythm() {
+  const { updateProfile } = useAuth();
+  return <S10Rhythm onChoose={(study_time, focus_minutes) => updateProfile({ study_time, focus_minutes })} />;
+}
+export function LivePush() {
+  const { profile, updateProfile } = useAuth();
+  return <S12Push name={firstName(profile, "there")} onChoose={async (yes) => {
+    // Ask the phone for permission now, while the reason is on screen. Reminders are sent later.
+    if (yes && typeof Notification !== 'undefined' && Notification.permission === 'default') await Notification.requestPermission().catch(() => undefined);
+    await updateProfile({ reminders: yes });
+  }} />;
+}
+export function LiveFirstClass() {
+  const { profile } = useAuth();
+  return <S13FirstClass name={firstName(profile, "there")} />;
+}
 export function LivePersona() {
   const { updateProfile } = useAuth();
   return <S11PickBoxBoy onChoose={(persona) => updateProfile({ persona })} />;
@@ -263,7 +278,7 @@ export const LivePrivacy = () => (
     ['What we collect', 'Your name and email when you sign up; your department, level and the choices you make in the app; your quiz results, streak and CGPA plan. If you claim your name for attendance, we keep your matric number and student email, and the attendance records your HOCs or lecturers scan.'],
     ['Why we collect it', 'To run the app for you: your courses, your progress, reminders, and accurate attendance registers for your classes.'],
     ['Who can see it', 'Your class list entry and attendance are visible only to the HOCs of your class and the lecturers who teach it. The Unify team sees totals, not names. We never sell your data and never show you ads while you study.'],
-    ['How long we keep it', 'For as long as you have an account. Delete your account in Settings and your profile, progress and claims are removed. Attendance a lecturer already exported may stay in their records.'],
+    ['How long we keep it', 'For as long as you have an account. Delete your account in Settings and your profile, progress and claim are removed. Attendance already taken stays on your class\'s register, which belongs to your HOCs and lecturers.'],
     ['Your rights', 'Under the Nigeria Data Protection Act you can ask to see, correct or delete your data. Email privacy@unify.ng.'],
   ]} />
 );

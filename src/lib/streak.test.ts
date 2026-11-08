@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { streakLength } from './streak';
+import { semesterWeek, streakLength } from './streak';
 import { neededGpa, bestFinish, difficulty } from '../screens/student/Home';
 
 const wed = new Date(2026, 9, 21); // Wednesday 21 Oct 2026
@@ -35,5 +35,21 @@ describe('CGPA maths', () => {
   });
   it('has nothing to plan once every unit is done', () => {
     expect(Number.isNaN(neededGpa(4.5, 4.0, 240, 240))).toBe(true);
+  });
+});
+
+describe('semesterWeek', () => {
+  const d = (s: string) => new Date(`${s}T10:00:00`);
+  it('is hidden until the admin sets a start date, and before lectures start', () => {
+    expect(semesterWeek(null, 12, d('2026-11-08'))).toBeNull();
+    expect(semesterWeek('2026-11-09', 12, d('2026-11-08'))).toBeNull();
+  });
+  it('counts weeks from the start date', () => {
+    expect(semesterWeek('2026-11-02', 12, d('2026-11-02'))).toBe(1);
+    expect(semesterWeek('2026-11-02', 12, d('2026-11-08'))).toBe(1);
+    expect(semesterWeek('2026-11-02', 12, d('2026-11-09'))).toBe(2);
+  });
+  it('stops at the last week', () => {
+    expect(semesterWeek('2026-01-05', 12, d('2026-11-08'))).toBe(12);
   });
 });

@@ -15,8 +15,8 @@ export function greeting(d = new Date()) {
   return h < 12 ? 'GOOD MORNING' : h < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
 }
 
-export function HomeHero({ target, hidden, week = student.semesterWeek, banner, name = student.firstName, classText = `${student.department} · ${student.level}`, streak = student.streak }: {
-  target: number | null; hidden?: boolean; week?: number; banner?: ReactNode; name?: string; classText?: string; streak?: number;
+export function HomeHero({ target, hidden, week = student.semesterWeek, weeks = 12, banner, name = student.firstName, classText = `${student.department} · ${student.level}`, streak = student.streak }: {
+  target: number | null; hidden?: boolean; week?: number | null; weeks?: number; banner?: ReactNode; name?: string; classText?: string; streak?: number;
 }) {
   const go = useGo();
   return (
@@ -35,7 +35,7 @@ export function HomeHero({ target, hidden, week = student.semesterWeek, banner, 
           {classText}
         </span>
         {/* Replaces "Week 1 starts today · first class 8 AM": the hero shows where you are in the semester. */}
-        <SemesterWeek week={week} />
+        {week != null && <SemesterWeek week={week} total={weeks} />}
       </div>
       {/* Box Boy holds the target sign (the sign is code, so the number is live) */}
       <button onClick={() => go('S15')} style={{ position: 'absolute', right: 8, top: 54, width: 123 }} aria-label="Edit target">

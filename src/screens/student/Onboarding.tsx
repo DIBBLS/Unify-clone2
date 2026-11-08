@@ -254,13 +254,14 @@ export function S09Goal({ onChoose }: { onChoose?: (goal: string) => Promise<voi
 
 /* S10 · 7c Study rhythm. Sets reminder times and focus length. */
 const TIMES = [['Early morning', '5 to 8 AM'], ['Afternoon', '12 to 4 PM'], ['Evening', '5 to 9 PM'], ['Night owl', 'after 10 PM'], ['Any time', '']];
-export function S10Rhythm() {
+export function S10Rhythm({ onChoose }: { onChoose?: (studyTime: string, focusMinutes: number) => Promise<void> } = {}) {
   const go = useGo();
   const [time, setTime] = useState('Night owl');
   const [focus, setFocus] = useState('25 min');
+  const minutes = focus === 'An hour+' ? 60 : Number(focus.split(' ')[0]);
   const box = (on: boolean) => ({ padding: '11px 14px', borderRadius: 16, background: on ? '#0a0a0a' : '#fff', color: on ? '#fff' : '#0a0a0a', border: on ? 0 : '1px solid var(--u-border)', textAlign: 'left' as const });
   return (
-    <FormStep step={3} title={'WHEN DO\nYOU READ\nBEST?'} intro="We'll time your reminders and revision to fit your day." actions={<Next label="Continue" onClick={() => go('S11')} />}>
+    <FormStep step={3} title={'WHEN DO\nYOU READ\nBEST?'} intro="We'll time your reminders and revision to fit your day." actions={<Next label="Continue" onClick={async () => { await onChoose?.(time, minutes).catch(() => undefined); go('S11'); }} />}>
       <div className="row wrap" style={{ gap: 8 }}>
         {TIMES.map(([t, s]) => (
           <button key={t} onClick={() => setTime(t)} className="stack" style={box(time === t)}>
@@ -273,7 +274,7 @@ export function S10Rhythm() {
         {['15 min', '25 min', '45 min', 'An hour+'].map((f) => <button key={f} onClick={() => setFocus(f)} className="t-15 w-7" style={box(focus === f)}>{f}</button>)}
       </div>
       <div className="t-14 w-6" style={{ background: '#dcfce7', color: 'var(--u-good)', borderRadius: 16, padding: '12px 14px' }}>
-        We'll suggest {focus === 'An hour+' ? '60' : focus.split(' ')[0]} minutes of reading, then a 5-minute break with a few quick questions.
+        We'll suggest {minutes} minutes of reading, then a 5-minute break with a few quick questions.
       </div>
     </FormStep>
   );
@@ -343,8 +344,9 @@ export function S11PickBoxBoy({ onChoose }: { onChoose?: (persona: string) => Pr
 }
 
 /* S12 · Want a little push? (push permission with a reason) */
-export function S12Push() {
+export function S12Push({ name = student.firstName, onChoose }: { name?: string; onChoose?: (yes: boolean) => Promise<void> } = {}) {
   const go = useGo();
+  const choose = async (yes: boolean) => { await onChoose?.(yes).catch(() => undefined); go('S13'); };
   return (
     <Poster
       bg="var(--u-green)" sheetBg="var(--u-black)"
@@ -354,20 +356,20 @@ export function S12Push() {
         <BoxBoy pose="phoneOut" width={230} style={{ position: 'absolute', left: -10, bottom: 0 }} />
         <div className="stack" style={{ position: 'absolute', right: 16, bottom: 140, width: 230, background: '#fff', borderRadius: 18, padding: 12, gap: 6, boxShadow: '0 8px 24px rgba(0,0,0,.12)' }}>
           <div className="row" style={{ gap: 8 }}><AppIcon size={22} /><span className="t-12 w-6 muted grow">Unify Learn</span><span className="t-12 faint">7:02</span></div>
-          <div className="t-13 w-5">Good morning, {student.firstName}. Week 3, Class 2 is waiting. Five minutes is enough.</div>
+          <div className="t-13 w-5">Good morning, {name}. Week 3, Class 2 is waiting. Five minutes is enough.</div>
         </div>
       </>}
       sheet={<>
         <p className="t-15 w-5" style={{ color: '#fff' }}>Good morning messages, streak reminders, and a nudge when you start falling behind. Written like a person.</p>
-        <Button onClick={() => go('S13')}>Yes, remind me</Button>
-        <button className="link-btn" style={{ color: '#fff' }} onClick={() => go('S13')}>Not now</button>
+        <Button onClick={() => choose(true)}>Yes, remind me</Button>
+        <button className="link-btn" style={{ color: '#fff' }} onClick={() => choose(false)}>Not now</button>
       </>}
     />
   );
 }
 
 /* S13 · Bag that first class */
-export function S13FirstClass() {
+export function S13FirstClass({ name = student.firstName }: { name?: string } = {}) {
   const go = useGo();
   return (
     <Poster
@@ -379,7 +381,7 @@ export function S13FirstClass() {
         <BoxBoy pose="keyHandover" width={290} style={{ position: 'absolute', right: -20, bottom: 0 }} />
       </>}
       sheet={<>
-        <p className="t-15 w-5" style={{ color: '#fff' }}>Welcome, {student.firstName}. Your courses are set. Pick one and open this week's note.</p>
+        <p className="t-15 w-5" style={{ color: '#fff' }}>Welcome, {name}. Your courses are set. Pick one and open this week's note.</p>
         <Next label="Open my courses" onClick={() => go('S14')} />
       </>}
     />

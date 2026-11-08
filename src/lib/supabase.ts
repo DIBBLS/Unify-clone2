@@ -23,6 +23,13 @@ export function schoolIdentityClient(): SupabaseClient {
 export function friendly(message: string): string {
   if (/Failed to fetch|NetworkError|Load failed/i.test(message)) return "Can't reach Unify. Check your connection and try again.";
   if (/JWT|not authenticated|Sign in first/i.test(message)) return 'Please sign in again.';
+  // messages from Supabase Auth
+  const wait = message.match(/only request this after (\d+) seconds?/i);
+  if (wait) return `A code was just sent. Wait ${wait[1]} seconds, then ask for a new one.`;
+  if (/rate limit/i.test(message)) return 'Too many emails sent in a short time. Wait a few minutes and try again.';
+  if (/token has expired|invalid.*(otp|token)|otp.*(expired|invalid)/i.test(message)) return 'That code is wrong or has expired. Check the newest email, or ask for a new code.';
+  if (/signups? not allowed/i.test(message)) return 'New sign-ups are paused right now. Try again later.';
+  if (/error sending.*email/i.test(message)) return "We couldn't send the email. Try again in a minute.";
   if (/duplicate key.*class_list_entries/i.test(message)) return 'That matric number is already on this list.';
   if (/violates check constraint.*matric/i.test(message)) return 'A matric number should be 6 to 12 digits.';
   return message.replace(/^.*?ERROR:\s*/, '');

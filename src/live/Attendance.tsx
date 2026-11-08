@@ -93,7 +93,7 @@ export function LivePass() {
               )}
             </>
           )}
-        <span className="t-13 center" style={{ color: '#888', maxWidth: 320 }}>Hold this up to your HOC. The code changes every 30 seconds, so a screenshot won't work. You need data for it to refresh.</span>
+        {pass?.status === 'ok' && <span className="t-13 center" style={{ color: '#888', maxWidth: 320 }}>Hold this up to your HOC. The code changes every 30 seconds, so a screenshot won't work. You need data for it to refresh.</span>}
       </div>
     </Screen>
   );
@@ -156,7 +156,8 @@ export function LiveOpenScan() {
 /* S61 · camera scanner */
 type ScanResult = { status: string; name?: string; matric?: string; level?: string; at?: string };
 type Summary = { session: { id: string; venue: string | null; opened_at: string; closed_at: string | null; course: string }; present: number; on_list: number; typed: number;
-  records: { name: string | null; matric: string | null; method: string; at: string; by: string | null }[] };
+  records: { name: string | null; matric: string | null; method: string; at: string; by: string | null }[];
+  absent: { name: string; matric: string; carryover: boolean }[] };
 const RESULT: Record<string, [string, 'good' | 'warn' | 'bad']> = {
   present: ['present', 'good'], already: ['already scanned', 'warn'], not_registered: ['not on this register', 'bad'],
   expired: ['old code: ask them to refresh', 'warn'], invalid: ["not a Unify pass", 'bad'], closed: ['scan is closed', 'bad'], not_allowed: ["you can't scan this class", 'bad'],
@@ -167,6 +168,7 @@ export function LiveScanner() {
   const sessionId = params.get('session') ?? '';
   const video = useRef<HTMLVideoElement>(null);
   const lastSeen = useRef<Map<string, number>>(new Map());
+  const settled = useRef<Set<string>>(new Set()); // students this phone has already shown as present or already scanned
   const [results, setResults] = useState<(ScanResult & { key: number })[]>([]);
   const [sum, setSum] = useState<Summary | null>(null);
   const [camErr, setCamErr] = useState<string | null>(null);
@@ -198,9 +200,14 @@ export function LiveScanner() {
           const token = res.getText();
           const who = token.split('.')[1] ?? token;
           const now = Date.now();
-          if ((lastSeen.current.get(who) ?? 0) > now - 4000) return; // same student held up twice
+          if (settled.current.has(who)) return; // already green or amber in the feed: a pass held up for a few seconds
+          if ((lastSeen.current.get(who) ?? 0) > now - 4000) return; // a failed read retried too fast
           lastSeen.current.set(who, now);
-          try { push(await rpc<ScanResult>('record_scan', { p_token: token })); }
+          try {
+            const r = await rpc<ScanResult>('record_scan', { p_token: token });
+            if (r.status === 'present' || r.status === 'already') settled.current.add(who);
+            push(r);
+          }
           catch (e) { push({ status: 'error', name: e instanceof Error ? e.message : 'Network problem' }); }
         });
         if (cancelled) controls.stop(); else stop = () => controls.stop();
@@ -233,7 +240,7 @@ export function LiveScanner() {
               <span style={{ width: 26, height: 26, borderRadius: 13, display: 'grid', placeItems: 'center', flexShrink: 0, background: tone === 'good' ? 'var(--u-green)' : tone === 'warn' ? 'var(--u-amber)' : 'var(--u-red)' }}>
                 {tone === 'good' ? <Check size={14} strokeWidth={3} color="#0a0a0a" /> : tone === 'warn' ? <AlertTriangle size={13} color="#0a0a0a" /> : <X size={14} color="#fff" strokeWidth={3} />}
               </span>
-              <span className="stack"><span className="t-14 w-7">{r.status === 'error' ? 'Not recorded' : r.name ?? 'Unknown pass'}</span><span className="t-12" style={{ color: '#999' }}>{r.status === 'error' ? r.name : `${r.matric ? `${r.matric} · ` : ''}${r.level ? `${r.level} · ` : ''}${text}`}</span></span>
+              <span className="stack"><span className="t-14 w-7">{r.status === 'error' ? 'Not recorded' : r.name ?? (r.matric ? `Matric ${r.matric}` : 'Unknown pass')}</span><span className="t-12" style={{ color: '#999' }}>{r.status === 'error' ? r.name : `${r.matric && r.name ? `${r.matric} · ` : ''}${r.level ? `${r.level} · ` : ''}${text}`}</span></span>
             </div>
           );
         })}
@@ -276,7 +283,13 @@ export function LiveRegister() {
   }, [sessionId]);
   const csv = () => {
     if (!sum) return;
-    const rows = [['Name', 'Matric', 'How', 'Time', 'By'], ...sum.records.map((r) => [r.name ?? '', r.matric ?? '', r.method, new Date(r.at).toLocaleString('en-GB'), r.by ?? ''])];
+    // Everyone on the register, A to Z, present or absent: the shape lecturers already keep in Excel.
+    const all = [
+      ...sum.records.map((r) => ({ name: r.name ?? '', matric: r.matric ?? '', status: 'Present', how: r.method === 'typed' ? 'Typed by HOC' : 'Scanned', time: new Date(r.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), by: r.by ?? '' })),
+      ...sum.absent.map((a) => ({ name: a.name, matric: a.matric, status: 'Absent', how: a.carryover ? 'Carryover' : '', time: '', by: '' })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    const head = [[`${sum.session.course} attendance`, new Date(sum.session.opened_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), sum.session.venue ?? '', `${sum.present} of ${sum.on_list} present`], []];
+    const rows = [...head, ['Name', 'Matric', 'Status', 'How', 'Time', 'By'], ...all.map((r) => [r.name, r.matric, r.status, r.how, r.time, r.by])];
     const blob = new Blob([rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = `${sum.session.course} attendance ${new Date(sum.session.opened_at).toISOString().slice(0, 10)}.csv`; a.click();
@@ -295,11 +308,17 @@ export function LiveRegister() {
             {[[sum.present, `present of ${sum.on_list}`], [sum.typed, 'typed in']].map(([n, l]) => <Card key={l as string} pad={12} gap={2} style={{ flex: 1 }}><span className="display" style={{ fontSize: 24 }}>{n}</span><span className="t-12 muted">{l}</span></Card>)}
           </div>
           {!sum.session.closed_at && <Button variant="dark" onClick={() => navigate(`/screens/S61?session=${sum.session.id}`)}>Back to scanning</Button>}
-          <Label>Present</Label>
+          <Label>Present · {sum.present}</Label>
           <ListCard>
             {sum.records.length === 0 && <ListRow title="Nobody scanned yet" />}
             {sum.records.map((r, i) => <ListRow key={i} title={r.name ?? 'Unknown'} sub={`${r.matric ?? ''} · ${t(r.at)}${r.by ? ` · by ${r.by}` : ''}`} right={r.method === 'typed' ? <Pill tone="warn">Typed</Pill> : null} />)}
           </ListCard>
+          {sum.absent.length > 0 && <>
+            <Label>{sum.session.closed_at ? 'Absent' : 'Not in yet'} · {sum.absent.length}</Label>
+            <ListCard>
+              {sum.absent.map((a) => <ListRow key={a.matric} title={a.name} sub={a.matric} right={a.carryover ? <Pill tone="grey">Carryover</Pill> : null} />)}
+            </ListCard>
+          </>}
           <Button variant="white" onClick={csv}><Download size={16} /> Save the list (CSV for Excel)</Button>
         </>}
       </div>
@@ -316,7 +335,7 @@ export function LiveMyAttendance() {
     (async () => {
       const [{ data: s }, { data: r }] = await Promise.all([
         supabase.from('attendance_sessions').select('id,courses(code,title)'),
-        supabase.from('attendance_records').select('session_id').eq('user_id', session.user.id),
+        supabase.rpc('my_claim').then(async ({ data: c }) => (c ? supabase.from('attendance_records').select('session_id').eq('entry_id', (c as { entry_id: string }).entry_id) : { data: [] })),
       ]);
       const mine = new Set(((r ?? []) as { session_id: string }[]).map((x) => x.session_id));
       const by = new Map<string, { code: string; title: string; came: number; held: number }>();

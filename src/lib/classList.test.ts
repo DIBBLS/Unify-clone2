@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkRows, guessMapping, linesFromPdfItems, parsePasted, rowsFromMatrix, saveable, splitFullName } from './classList';
+import { trimToTable, checkRows, guessMapping, linesFromPdfItems, parsePasted, rowsFromMatrix, saveable, splitFullName } from './classList';
 import { isSchoolEmail, matricFromEmail } from './matric';
 
 describe('reading a spreadsheet', () => {
@@ -93,5 +93,25 @@ describe('student email', () => {
     expect(isSchoolEmail('joshua@lasu.edu.ng')).toBe(false);
     expect(matricFromEmail('joshua.olotuche220801234@st.lasu.edu.ng')).toBe('220801234');
     expect(matricFromEmail('joshua.olotuche@st.lasu.edu.ng')).toBeNull();
+  });
+});
+
+describe('trimToTable', () => {
+  it('drops the university title rows above the heading row', () => {
+    const m = [['LAGOS STATE UNIVERSITY'], ['300 LEVEL CLASS LIST 2026/2027'], [], ['S/N', 'MATRIC NO', 'NAME'], [1, '220801001', 'ABIODUN Mariam'], [2, '220801117', 'ADEBAYO Kunle']];
+    const t = trimToTable(m);
+    expect(t[0]).toEqual(['S/N', 'MATRIC NO', 'NAME']);
+    expect(t).toHaveLength(3);
+    const g = guessMapping(t);
+    expect(g.header).toBe(true);
+    expect(rowsFromMatrix(t, g.mapping, g.header)).toHaveLength(2);
+  });
+  it('keeps a list with no heading row as it is', () => {
+    const m = [['220801001', 'ABIODUN Mariam'], ['220801117', 'ADEBAYO Kunle']];
+    expect(trimToTable(m)).toEqual(m);
+  });
+  it('does not treat a one-cell title as the heading', () => {
+    const m = [['300L ECE'], ['220801001', 'ABIODUN Mariam']];
+    expect(trimToTable(m)).toEqual([['220801001', 'ABIODUN Mariam']]);
   });
 });

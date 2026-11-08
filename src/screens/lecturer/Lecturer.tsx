@@ -4,6 +4,7 @@ import { Screen, TopBar, TabBar, BottomActions } from '../../components/chrome';
 import { Button, Card, Display, Field, Label, ListCard, ListRow, Pill, Chip, Chips, Segmented, Toggle, ProgressBar, Checkbox } from '../../components/ui';
 import { BoxBoy, Wordmark, Avatar, AppIcon, Bubble } from '../../components/brand';
 import { useGo } from '../../components/nav';
+import { isLive } from '../../lib/supabase';
 
 /* ===================== Lecturer (L00–L20) =====================
    Unify Learn for Lecturers is its own product: a workspace built around the
@@ -111,6 +112,7 @@ export const L01cInsight = () => (
 /* ---------- Welcome + onboarding L01–L06 ---------- */
 export function L01Welcome() {
   const go = useGo();
+  const google = !isLive; // the live app signs lecturers up with email; Google shows in the design gallery only
   return (
     <Screen bg="var(--u-green)" actions>
       <div className="stack pad" style={{ gap: 10, paddingTop: 40 }}>
@@ -123,7 +125,7 @@ export function L01Welcome() {
       </div>
       <BottomActions tone="green">
         <Button variant="dark" onClick={() => go('L02')}>Create a lecturer account</Button>
-        <Button variant="white" onClick={() => go('L02')}><img src="/boxboy/google.png" alt="" width={18} height={18} /> Continue with Google</Button>
+        {google && <Button variant="white" onClick={() => go('L02')}><img src="/boxboy/google.png" alt="" width={18} height={18} /> Continue with Google</Button>}
         <button className="t-13 w-6" onClick={() => go('LOGIN')}>Already have an account? Log in</button>
       </BottomActions>
     </Screen>

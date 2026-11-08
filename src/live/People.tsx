@@ -8,7 +8,7 @@ import { useGo } from '../components/nav';
 import { Note, SelectInput, TextInput, useAction } from '../components/form';
 import { supabase, rpc, friendly } from '../lib/supabase';
 import { useAuth, firstName, classLabel } from '../lib/auth';
-import { streakLength, todayIso } from '../lib/streak';
+import { semesterWeek, streakLength, todayIso } from '../lib/streak';
 import { HomeHero, HomeSheet, ContinueCard, neededGpa, bestFinish, difficulty } from '../screens/student/Home';
 import { S33WeekComplete, S36RevisionDone } from '../screens/student/Learning';
 import { useMyClaim } from './Claim';
@@ -38,6 +38,16 @@ export async function markStudied(userId: string) {
 }
 
 /* S19 · Home */
+function useSemester() {
+  const [s, setS] = useState<{ week: number | null; weeks: number }>({ week: null, weeks: 12 });
+  useEffect(() => {
+    supabase.from('semester').select('starts_on,weeks').maybeSingle().then(({ data }) => {
+      if (data) setS({ week: semesterWeek(data.starts_on as string | null, data.weeks as number), weeks: data.weeks as number });
+    });
+  }, []);
+  return s;
+}
+
 export function LiveHome() {
   const go = useGo();
   const { profile, klass, hocOf } = useAuth();
@@ -47,6 +57,7 @@ export function LiveHome() {
   const [target, setTarget] = useState<number | null>(null);
   const [courses, setCourses] = useState<Course[] | null>(null);
   const [inbox, setInbox] = useState(0);
+  const sem = useSemester();
   useEffect(() => {
     supabase.rpc('my_open_sessions').then(({ data }) => setOpen((data ?? []) as { course_code: string; venue: string | null }[]));
     supabase.from('cgpa_plans').select('target').maybeSingle().then(({ data }) => setTarget(data?.target != null ? Number(data.target) : null));
@@ -63,7 +74,7 @@ export function LiveHome() {
   );
   return (
     <Screen tabs>
-      <HomeHero target={target} name={firstName(profile, 'there')} classText={klass ? `${klass.department_name} · ${klass.level}L` : 'Choose your department in Me'} streak={streak.now} banner={banner || undefined} />
+      <HomeHero target={target} name={firstName(profile, 'there')} week={sem.week} weeks={sem.weeks} classText={klass ? `${klass.department_code} · ${klass.level}L` : 'Choose your department in Me'} streak={streak.now} banner={banner || undefined} />
       <HomeSheet>
         {claim === null && (
           <Card pad={16} gap={6} onClick={() => go('AT07')} style={{ border: '1.5px solid #0a0a0a' }}>
@@ -185,10 +196,10 @@ export function LiveSettings() {
         <Label>Danger zone</Label>
         <Card pad={16} gap={10} style={{ borderColor: confirm ? 'var(--u-red)' : undefined }}>
           <span className="t-15 w-7" style={{ color: 'var(--u-red)' }}>Delete my account</span>
-          <span className="t-13 muted">Removes your profile, progress, claimed name and attendance for good. This can't be undone.</span>
+          <span className="t-13 muted">Removes your profile, progress and claimed name for good. Attendance already taken stays on your class's register. This can't be undone.</span>
           {confirm ? (
             <div className="row" style={{ gap: 8 }}>
-              <Button small block={false} variant="danger" disabled={busy} onClick={() => run(async () => { await rpc('delete_my_account'); await signOut(); navigate('/', { replace: true }); })}><Trash2 size={14} /> {busy ? 'Deleting…' : 'Yes, delete everything'}</Button>
+              <Button small block={false} variant="danger" disabled={busy} onClick={() => run(async () => { await rpc('delete_my_account'); await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined); await signOut().catch(() => undefined); navigate('/', { replace: true }); })}><Trash2 size={14} /> {busy ? 'Deleting…' : 'Yes, delete everything'}</Button>
               <Button small block={false} variant="white" onClick={() => setConfirm(false)}>Cancel</Button>
             </div>
           ) : <Button small block={false} variant="white" onClick={() => setConfirm(true)}>Delete my account</Button>}
@@ -330,10 +341,20 @@ export function LiveCgpa() {
 }
 
 /* S33 / S36 · finishing a week or the day's revision counts toward the streak */
+/** Marks today as studied, then returns the streak including today. */
 function useMarkStudied() {
   const { session } = useAuth();
-  useEffect(() => { if (session) markStudied(session.user.id).catch(() => undefined); }, [session]);
+  const [streak, setStreak] = useState<number | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    (async () => {
+      await markStudied(session.user.id).catch(() => undefined);
+      const { data } = await supabase.from('streak_days').select('day').order('day', { ascending: false }).limit(400);
+      setStreak(streakLength(((data ?? []) as { day: string }[]).map((d) => d.day)));
+    })();
+  }, [session]);
+  return streak;
 }
-export function LiveWeekComplete() { useMarkStudied(); return <S33WeekComplete />; }
+export function LiveWeekComplete() { const streak = useMarkStudied(); return <S33WeekComplete streak={streak} />; }
 export function LiveRevisionDone() { useMarkStudied(); return <S36RevisionDone />; }
 

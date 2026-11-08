@@ -143,3 +143,16 @@ a { color: inherit; text-decoration: none; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { scrollbar-width: none; }
 .no-select { user-select: none; -webkit-user-select: none; }
+
+/* Unify admin: sidebar on desktop, a scrolling tab row on phones */
+@media (max-width: 760px) {
+  .admin-shell { flex-direction: column; }
+  .admin-nav { width: auto !important; flex-direction: row !important; overflow-x: auto; padding: 12px !important; gap: 4px; }
+  .admin-nav > div:first-child { padding: 0 8px 0 0 !important; }
+  .admin-nav button { white-space: nowrap; }
+  .admin-main { padding: 20px 16px !important; }
+  .admin-split { grid-template-columns: minmax(0, 1fr) !important; }
+  .admin-main table { font-size: 13px; }
+  .admin-main th, .admin-main td { padding: 10px 12px !important; }
+  .admin-main .card:has(> table) { overflow-x: auto !important; }
+}

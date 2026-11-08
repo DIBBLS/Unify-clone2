@@ -552,7 +552,7 @@ export function S32QuizResults() {
 }
 
 /* S33 · Week complete. Box Boy's bottom edge fades into the green. */
-export function S33WeekComplete() {
+export function S33WeekComplete({ streak = 5 }: { streak?: number | null } = {}) {
   const go = useGo();
   return (
     <Screen bg="var(--u-green)" actions>
@@ -564,7 +564,7 @@ export function S33WeekComplete() {
           <span className="stack"><span className="eyebrow" style={{ color: 'var(--u-green)', fontSize: 11 }}>Quiz</span><span className="display" style={{ fontSize: 44 }}>8/10</span></span>
           <span className="stack"><span className="t-16 w-7">Week 3 is open</span><span className="t-13" style={{ color: '#999' }}>Gas turbines · 3 classes</span></span>
         </Card>
-        <div><StreakPill days={5} /></div>
+        {streak != null && <div><StreakPill days={streak} /></div>}
       </div>
       <BottomActions tone="green">
         <Button onClick={() => go('S23')}>Start Week 3</Button>

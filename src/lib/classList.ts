@@ -34,6 +34,18 @@ export function guessTarget(heading: string, values: unknown[]): Target {
 }
 
 /** Is the first row of a table a heading row? True when it has no matric-like cell and has letters. */
+/** Drop blank rows and the title rows department sheets put above the table
+    ("LAGOS STATE UNIVERSITY", "300 LEVEL CLASS LIST 2026/2027"). Keeps the heading row
+    right above the first student if it has at least two cells. */
+export function trimToTable(matrix: unknown[][]): unknown[][] {
+  const rows = matrix.filter((r) => Array.isArray(r) && r.some((c) => clean(c)));
+  const first = rows.findIndex((r) => r.some(looksLikeMatric));
+  if (first <= 0) return rows;
+  const above = rows[first - 1];
+  const start = above.filter((c) => clean(c)).length >= 2 ? first - 1 : first;
+  return rows.slice(start);
+}
+
 export function hasHeaderRow(matrix: unknown[][]): boolean {
   const first = matrix[0] ?? [];
   return !first.some(looksLikeMatric) && first.some((c) => /[a-z]/i.test(clean(c)));

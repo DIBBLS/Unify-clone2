@@ -54,6 +54,16 @@ describe('profiles and roles', () => {
     await db.as(joshua);
     await expect(db.query(`update profiles set role = 'admin' where id = $1`, [joshua.id])).rejects.toThrow(/admin/);
   });
+  it('sign-up can ask for a lecturer account, never an admin one', async () => {
+    await admin(db, `insert into auth.users(id, email, raw_user_meta_data) values (gen_random_uuid(), 'dr.bello@gmail.com', '{"display_name":"Dr. Bello","role":"lecturer"}'), (gen_random_uuid(), 'sneaky@gmail.com', '{"display_name":"Sneaky","role":"admin"}')`);
+    const rows = await admin<{ email: string; role: string }>(db, `select email, role from profiles where email in ('dr.bello@gmail.com', 'sneaky@gmail.com') order by email`);
+    expect(rows).toEqual([{ email: 'dr.bello@gmail.com', role: 'lecturer' }, { email: 'sneaky@gmail.com', role: 'student' }]);
+  });
+  it('the email on a profile cannot be changed by the user', async () => {
+    await db.as(joshua);
+    await db.query(`update profiles set email = 'someone.else@gmail.com' where id = $1`, [joshua.id]);
+    expect((await admin<{ email: string }>(db, 'select email from profiles where id = $1', [joshua.id]))[0].email).toBe('joshua.olotuche@gmail.com');
+  });
   it('a user can switch to lecturer at sign-up', async () => {
     await db.as(lecturer);
     await db.query(`update profiles set role = 'lecturer' where id = $1`, [lecturer.id]);
@@ -177,6 +187,25 @@ describe('claiming your name', () => {
     expect(await rpc(db, 'complete_claim', { p_nonce: nonce })).toMatchObject({ status: 'claimed', surname: 'OYELARAN' });
   });
 
+  it('when the HOC adds a student from the inbox, their proven email finishes the claim', async () => {
+    const dayo = await db.makeUser('dayo@gmail.com');
+    const dayoSchool = await db.makeUser('dayo.akin220811950@st.lasu.edu.ng');
+    await put(dayo);
+    await db.as(dayo);
+    const nonce = await rpc<string>(db, 'begin_claim');
+    await db.as(dayoSchool);
+    expect(await rpc(db, 'complete_claim', { p_nonce: nonce })).toMatchObject({ status: 'not_on_list' });
+    // they try to point the request at someone else's matric: the claim must still follow the email
+    await db.as(dayo);
+    await rpc(db, 'message_hoc', { p_kind: 'not_on_list', p_matric: '220801117', p_message: 'add me' });
+    await db.as(hoc);
+    const item = (await db.query<{ id: string }>(`select id from inbox_items where kind = 'not_on_list' and status = 'open' and from_user = $1`, [dayo.id])).rows[0];
+    await rpc(db, 'add_student', { p_class: classId, p_surname: 'Akin', p_first: 'Dayo', p_middle: '', p_matric: '220811950', p_reason: 'Transfer' });
+    await rpc(db, 'resolve_inbox', { p_item: item.id, p_decision: 'resolved' });
+    await db.as(dayo);
+    expect(await rpc(db, 'my_claim')).toMatchObject({ matric: '220811950', method: 'student_email' });
+  });
+
   it('an HOC can confirm a student by ID card', async () => {
     const amaka = await db.makeUser('amaka@gmail.com');
     await put(amaka);
@@ -290,6 +319,35 @@ describe('attendance', () => {
     await expect(rpc(db, 'session_attendance', { p_session: sessionId })).rejects.toThrow(/Not allowed/);
   });
 
+  it('an HOC can type in a student who has not claimed (no phone); absent list updates', async () => {
+    await db.as(hoc);
+    await rpc(db, 'add_student', { p_class: classId, p_surname: 'Nophone', p_first: 'Bisi', p_middle: '', p_matric: '220811988', p_reason: 'Missed off the list' });
+    const before = await rpc<{ absent: { matric: string }[] }>(db, 'session_attendance', { p_session: sessionId });
+    expect(before.absent.map((a) => a.matric)).toContain('220811988');
+    expect(await rpc(db, 'record_typed', { p_session: sessionId, p_matric: '220811988' })).toMatchObject({ status: 'present', name: 'NOPHONE Bisi' });
+    expect(await rpc(db, 'record_typed', { p_session: sessionId, p_matric: '220811988' })).toMatchObject({ status: 'already' });
+    const after = await rpc<{ absent: { matric: string }[]; on_list: number; present: number }>(db, 'session_attendance', { p_session: sessionId });
+    expect(after.absent.map((a) => a.matric)).not.toContain('220811988');
+    expect(after.present + after.absent.length).toBe(after.on_list);
+    // a typed matric that is not on the register says which number it was
+    expect(await rpc(db, 'record_typed', { p_session: sessionId, p_matric: '2208 0999 9' })).toMatchObject({ status: 'not_registered', matric: '220809999' });
+  });
+
+  it('a student added and typed in before claiming sees that class after claiming', async () => {
+    await db.as(hoc);
+    await rpc(db, 'add_student', { p_class: classId, p_surname: 'Late', p_first: 'Claimer', p_middle: '', p_matric: '220811977', p_reason: 'Direct entry' });
+    expect(await rpc(db, 'record_typed', { p_session: sessionId, p_matric: '220811977' })).toMatchObject({ status: 'present' });
+    const late = await db.makeUser('late@gmail.com');
+    const lateSchool = await db.makeUser('late.claimer220811977@st.lasu.edu.ng');
+    await put(late);
+    await db.as(late);
+    const nonce = await rpc<string>(db, 'begin_claim');
+    await db.as(lateSchool);
+    expect(await rpc(db, 'complete_claim', { p_nonce: nonce })).toMatchObject({ status: 'claimed' });
+    await db.as(late);
+    expect((await db.query('select session_id from attendance_records')).rows).toHaveLength(1);
+  });
+
   it('closing the scan stops new scans', async () => {
     await db.as(lecturer);
     await rpc(db, 'close_attendance', { p_session: sessionId });
@@ -332,7 +390,46 @@ describe('admin', () => {
     await db.as(boss);
     const o = await rpc<{ claimed: number; lists_uploaded: number; by_class: { class: string; claimed: number }[] }>(db, 'admin_overview');
     expect(o.lists_uploaded).toBe(2);
-    expect(o.by_class.find((c) => c.class === '300L ECE')?.claimed).toBe(4); // 3 uploaded + 1 added, all claimed
+    expect(o.by_class.find((c) => c.class === '300L ECE')?.claimed).toBe(6); // 3 uploaded + 3 claimed later (2 added, 1 late claimer)
+  });
+});
+
+describe('fixing the saved list', () => {
+  it('an HOC can fix a name; a claimed matric is locked; claimed or registered students cannot be removed', async () => {
+    await db.as(hoc);
+    const id = await rpc<string>(db, 'add_student', { p_class: classId, p_surname: 'Typo', p_first: 'Mistake', p_middle: '', p_matric: '220811555', p_reason: 'Missed off the list' });
+    await rpc(db, 'edit_student', { p_entry: id, p_surname: 'Tayo', p_first: 'Mistura', p_middle: 'ade', p_matric: '220811556' });
+    expect((await db.query<{ surname: string; middle_name: string; matric: string }>('select surname, middle_name, matric from class_list_entries where id = $1', [id])).rows[0])
+      .toEqual({ surname: 'TAYO', middle_name: 'Ade', matric: '220811556' });
+    await rpc(db, 'remove_student', { p_entry: id });
+    expect((await db.query('select 1 from class_list_entries where id = $1', [id])).rows).toHaveLength(0);
+    // a claimed student: name can be fixed, matric cannot change, row cannot be removed
+    const claimed = (await admin<{ entry_id: string; matric: string }>(db, `select c.entry_id, e.matric from claims c join class_list_entries e on e.id = c.entry_id where e.class_id = $1 limit 1`, [classId]))[0];
+    await db.as(hoc);
+    await expect(rpc(db, 'edit_student', { p_entry: claimed.entry_id, p_surname: 'X', p_first: 'Y', p_middle: '', p_matric: '220800000' })).rejects.toThrow(/locked/);
+    await expect(rpc(db, 'remove_student', { p_entry: claimed.entry_id })).rejects.toThrow(/claimed/);
+    // someone else's HOC cannot touch this list
+    await db.as(outsider);
+    await expect(rpc(db, 'edit_student', { p_entry: claimed.entry_id, p_surname: 'X', p_first: 'Y', p_middle: '', p_matric: claimed.matric })).rejects.toThrow(/Only an HOC/);
+    await db.as(hoc);
+    const history = await rpc<{ action: string }[]>(db, 'class_history', { p_class: classId });
+    expect(JSON.stringify(history)).toContain('removed');
+  });
+  it('a student typed in on a register cannot be removed', async () => {
+    const nophone = (await admin<{ id: string }>(db, `select id from class_list_entries where matric = '220811988'`))[0];
+    await db.as(hoc);
+    await expect(rpc(db, 'remove_student', { p_entry: nophone.id })).rejects.toThrow(/past register/);
+  });
+});
+
+describe('HOC account deletion', () => {
+  it('an HOC who took attendance and settled requests can still delete their account; the register stays', async () => {
+    const before = await admin<{ n: number }>(db, 'select count(*)::int as n from attendance_records');
+    await db.as(hoc);
+    await rpc(db, 'delete_my_account');
+    await db.as(null);
+    expect((await admin<{ n: number }>(db, 'select count(*)::int as n from profiles where id = $1', [hoc.id]))[0].n).toBe(0);
+    expect((await admin<{ n: number }>(db, 'select count(*)::int as n from attendance_records'))[0].n).toBe(before[0].n);
   });
 });
 
@@ -342,5 +439,14 @@ describe('account deletion', () => {
     await db.as(temp);
     await rpc(db, 'delete_my_account');
     expect((await admin(db, 'select 1 from profiles where id = $1', [temp.id])).length).toBe(0);
+  });
+});
+
+describe('semester calendar', () => {
+  it('everyone signed in can read it; only an admin can change it', async () => {
+    await db.as(kunle);
+    expect((await db.query<{ weeks: number }>('select weeks from semester')).rows[0].weeks).toBe(12);
+    await db.query(`update semester set starts_on = '2026-11-02'`);
+    expect((await admin<{ starts_on: string | null }>(db, 'select starts_on::text from semester'))[0].starts_on).toBeNull();
   });
 });

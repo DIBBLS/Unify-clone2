@@ -53,6 +53,9 @@ create table public.profiles (
   class_id uuid references public.classes(id),
   persona text,                          -- go-getter | comeback | curious | team-player | on-the-move
   goal text,
+  study_time text,                       -- when they read best (S10)
+  focus_minutes int check (focus_minutes between 5 and 180),
+  reminders boolean,                     -- said yes to reminders (S12)
   is_school_identity boolean not null default false, -- helper account created only to prove a student email
   created_at timestamptz not null default now()
 );
@@ -71,7 +74,7 @@ create table public.hoc_requests (
   phone text,
   confirmer text,                        -- 'Level adviser', 'HOD', ...
   status text not null default 'open' check (status in ('open','approved','declined')),
-  decided_by uuid references public.profiles(id),
+  decided_by uuid references public.profiles(id) on delete set null,
   decided_at timestamptz,
   created_at timestamptz not null default now()
 );
@@ -92,7 +95,7 @@ create table public.class_list_entries (
   middle_name text,
   matric text not null check (matric ~ '^[0-9]{6,12}$'),
   reason text,                           -- null for the uploaded list; 'Direct entry' etc. when added later
-  added_by uuid references public.profiles(id),
+  added_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   unique (class_id, matric)
 );
@@ -119,7 +122,7 @@ create table public.inbox_items (
   from_user uuid references public.profiles(id) on delete set null,
   payload jsonb not null default '{}'::jsonb,
   message text,
-  decided_by uuid references public.profiles(id),
+  decided_by uuid references public.profiles(id) on delete set null,
   decided_at timestamptz,
   created_at timestamptz not null default now()
 );
@@ -149,19 +152,21 @@ create table public.attendance_sessions (
   course_id uuid not null references public.courses(id) on delete cascade,
   class_id uuid not null references public.classes(id) on delete cascade,
   venue text,
-  opened_by uuid not null references public.profiles(id),
+  opened_by uuid references public.profiles(id) on delete set null,
   opened_at timestamptz not null default now(),
   closed_at timestamptz
 );
 
+-- One row per person on the register who was present. Keyed on the class list entry, so an HOC can
+-- type in a student who has no phone, and a student who claims their name later still sees it.
 create table public.attendance_records (
   session_id uuid not null references public.attendance_sessions(id) on delete cascade,
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  entry_id uuid references public.class_list_entries(id) on delete set null,
+  entry_id uuid not null references public.class_list_entries(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete set null,   -- the account holding this name, if claimed
   method text not null check (method in ('scan','typed')),
-  scanned_by uuid references public.profiles(id),
+  scanned_by uuid references public.profiles(id) on delete set null,
   scanned_at timestamptz not null default now(),
-  primary key (session_id, user_id)
+  primary key (session_id, entry_id)
 );
 
 -- ============================================================ learning progress
@@ -181,6 +186,15 @@ create table public.streak_days (
   day date not null,
   primary key (user_id, day)
 );
+
+-- the current semester: set by the Unify admin, drives "Week 3 of 12" on home
+create table public.semester (
+  id int primary key default 1 check (id = 1),
+  label text not null default 'First semester 2026/2027',
+  starts_on date,
+  weeks int not null default 12 check (weeks between 1 and 30)
+);
+insert into public.semester(id) values (1);
 
 create table public.cgpa_plans (
   user_id uuid primary key references public.profiles(id) on delete cascade,
@@ -244,9 +258,11 @@ $$;
 create or replace function private.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into profiles(id, email, display_name, is_school_identity)
+  -- sign-up may ask to be a lecturer; nothing else (admin is only ever set by an admin)
+  insert into profiles(id, email, display_name, role, is_school_identity)
   values (new.id, lower(new.email),
           coalesce(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+          case when new.raw_user_meta_data->>'role' = 'lecturer' then 'lecturer'::public.user_role else 'student'::public.user_role end,
           lower(coalesce(new.email,'')) like '%@st.lasu.edu.ng')
   on conflict (id) do nothing;
   return new;
@@ -286,6 +302,7 @@ alter table public.attendance_records enable row level security;
 alter table public.quiz_attempts enable row level security;
 alter table public.streak_days enable row level security;
 alter table public.cgpa_plans enable row level security;
+alter table public.semester enable row level security;
 
 -- reference data: readable by any signed-in user
 create policy "read departments" on public.departments for select to authenticated using (true);
@@ -313,6 +330,10 @@ begin
   end if;
   if new.is_school_identity is distinct from old.is_school_identity and not public.is_admin() then
     new.is_school_identity := old.is_school_identity;
+  end if;
+  -- the email on the profile always mirrors the sign-in email
+  if new.email is distinct from old.email and not public.is_admin() then
+    new.email := old.email;
   end if;
   return new;
 end $$;
@@ -357,11 +378,14 @@ create policy "see attendance sessions" on public.attendance_sessions for select
          or class_id = (select class_id from public.profiles where id = auth.uid())
          or exists (select 1 from public.priority_registrations pr where pr.user_id = auth.uid() and pr.class_id = attendance_sessions.class_id and pr.course_id = attendance_sessions.course_id and pr.status = 'approved'));
 create policy "see attendance records" on public.attendance_records for select to authenticated
-  using (user_id = auth.uid() or exists (select 1 from public.attendance_sessions s where s.id = session_id and public.can_see_class(s.class_id)));
+  using (entry_id in (select c.entry_id from public.claims c where c.user_id = auth.uid())
+         or exists (select 1 from public.attendance_sessions s where s.id = session_id and public.can_see_class(s.class_id)));
 
 -- learning progress: own rows only
 create policy "own quiz attempts" on public.quiz_attempts for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own streak" on public.streak_days for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "read semester" on public.semester for select to authenticated using (true);
+create policy "admin sets semester" on public.semester for update to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "own cgpa plan" on public.cgpa_plans for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ============================================================ functions (RPC)
@@ -433,6 +457,45 @@ begin
   returning id into v_id;
   perform private.log(p_class, 'added', upper(trim(p_surname)) || ' ' || initcap(trim(p_first)) || ' · ' || coalesce(p_reason, 'added'));
   return v_id;
+end $$;
+
+-- Fix a row after the list is saved. A claimed matric is locked: the student proved it.
+create or replace function public.edit_student(p_entry uuid, p_surname text, p_first text, p_middle text, p_matric text)
+returns void language plpgsql security definer set search_path = public as $$
+declare e class_list_entries; v_matric text := regexp_replace(coalesce(p_matric, ''), '\D', '', 'g');
+begin
+  select * into e from class_list_entries where id = p_entry;
+  if e.id is null or not is_hoc(e.class_id) then raise exception 'Only an HOC of this class can edit it'; end if;
+  if coalesce(trim(p_surname), '') = '' or coalesce(trim(p_first), '') = '' then raise exception 'Surname and first name are needed'; end if;
+  if v_matric <> e.matric and exists (select 1 from claims where entry_id = e.id) then
+    raise exception 'This student has claimed their name, so their matric number is locked';
+  end if;
+  update class_list_entries
+    set surname = upper(trim(p_surname)), first_name = initcap(trim(p_first)),
+        middle_name = nullif(initcap(trim(coalesce(p_middle, ''))), ''), matric = v_matric
+    where id = e.id;
+  perform private.log(e.class_id, 'edited',
+    concat_ws(' ', e.surname, e.first_name, e.middle_name) || ' → '
+    || concat_ws(' ', upper(trim(p_surname)), initcap(trim(p_first)), nullif(initcap(trim(coalesce(p_middle, ''))), ''))
+    || case when v_matric <> e.matric then ' · matric ' || e.matric || ' → ' || v_matric else '' end);
+end $$;
+
+-- Remove a row added by mistake. Never once someone holds it or it is on a register.
+create or replace function public.remove_student(p_entry uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare e class_list_entries; v_regs int;
+begin
+  select * into e from class_list_entries where id = p_entry;
+  if e.id is null or not is_hoc(e.class_id) then raise exception 'Only an HOC of this class can remove it'; end if;
+  if exists (select 1 from claims where entry_id = e.id) then
+    raise exception 'This student has claimed their name, so they can''t be removed. Fix their name instead';
+  end if;
+  select count(*) into v_regs from attendance_records where entry_id = e.id;
+  if v_regs > 0 then
+    raise exception 'This student is on % past register%, so they can''t be removed. Fix their name instead', v_regs, case when v_regs = 1 then '' else 's' end;
+  end if;
+  delete from class_list_entries where id = e.id;
+  perform private.log(e.class_id, 'removed', e.surname || ' ' || e.first_name || ' · ' || e.matric);
 end $$;
 
 -- --- claiming your name
@@ -589,7 +652,7 @@ begin
     'entry', (select jsonb_build_object('surname', e.surname, 'first_name', e.first_name, 'middle_name', e.middle_name, 'matric', e.matric)
               from class_list_entries e where e.id = coalesce((i.payload->>'entry_id')::uuid, null)),
     'holder', (select jsonb_build_object('name', hp.display_name, 'email', c.student_email, 'claimed_at', c.claimed_at,
-                                         'classes', (select count(*) from attendance_records ar where ar.user_id = c.user_id))
+                                         'classes', (select count(*) from attendance_records ar where ar.entry_id = c.entry_id))
                from claims c join profiles hp on hp.id = c.user_id where c.entry_id = (i.payload->>'entry_id')::uuid))
   from inbox_items i left join profiles p on p.id = i.from_user
   where i.class_id = p_class and i.status = 'open'
@@ -642,6 +705,18 @@ begin
 
   else -- not_on_list
     v_status := case when p_decision = 'decline' then 'declined' else 'resolved' end;
+    -- They proved their student email before they were on the list. Once the HOC adds that
+    -- matric, finish their claim so they don't have to do it again. The matric must come from
+    -- the proven email itself, not from anything typed later.
+    if v_status = 'resolved' and lower(coalesce(i.payload->>'email', '')) ~ '@st\.lasu\.edu\.ng$' then
+      select e.id into v_entry from class_list_entries e
+      where e.class_id = i.class_id
+        and e.matric = substring(split_part(lower(i.payload->>'email'), '@', 1) from '([0-9]{6,12})$')
+        and not exists (select 1 from claims c where c.entry_id = e.id);
+      if v_entry is not null and not exists (select 1 from claims where user_id = i.from_user) then
+        insert into claims(entry_id, user_id, method, student_email) values (v_entry, i.from_user, 'student_email', lower(i.payload->>'email'));
+      end if;
+    end if;
   end if;
 
   update inbox_items set status = v_status, decided_by = auth.uid(), decided_at = now() where id = p_item;
@@ -708,20 +783,29 @@ begin
                             'expires_in', 30 - (floor(extract(epoch from now()))::bigint % 30));
 end $$;
 
-create or replace function private.record(s attendance_sessions, p_user uuid, p_method text) returns jsonb
+-- Mark one person on the register present.
+create or replace function private.record_entry(s attendance_sessions, p_entry uuid, p_method text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_entry uuid; e class_list_entries; v_at timestamptz;
+declare e class_list_entries; v_at timestamptz;
 begin
-  v_entry := private.eligible_entry(s, p_user);
-  if v_entry is null then return jsonb_build_object('status', 'not_registered'); end if;
-  select * into e from class_list_entries where id = v_entry;
-  select scanned_at into v_at from attendance_records where session_id = s.id and user_id = p_user;
+  select * into e from class_list_entries where id = p_entry;
+  select scanned_at into v_at from attendance_records where session_id = s.id and entry_id = p_entry;
   if v_at is not null then
     return jsonb_build_object('status', 'already', 'name', e.surname || ' ' || e.first_name, 'matric', e.matric, 'at', v_at);
   end if;
-  insert into attendance_records(session_id, user_id, entry_id, method, scanned_by) values (s.id, p_user, v_entry, p_method, auth.uid());
+  insert into attendance_records(session_id, entry_id, user_id, method, scanned_by)
+  values (s.id, p_entry, (select user_id from claims where entry_id = p_entry), p_method, auth.uid());
   return jsonb_build_object('status', 'present', 'name', e.surname || ' ' || e.first_name, 'matric', e.matric,
                             'level', (select k.level || 'L ' || k.department_code from classes k where k.id = e.class_id));
+end $$;
+
+create or replace function private.record(s attendance_sessions, p_user uuid, p_method text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_entry uuid;
+begin
+  v_entry := private.eligible_entry(s, p_user);
+  if v_entry is null then return jsonb_build_object('status', 'not_registered'); end if;
+  return private.record_entry(s, v_entry, p_method);
 end $$;
 
 create or replace function public.record_scan(p_token text) returns jsonb
@@ -752,19 +836,21 @@ end $$;
 -- HOC types a matric number (dead phone, no data)
 create or replace function public.record_typed(p_session uuid, p_matric text) returns jsonb
 language plpgsql security definer set search_path = public, private as $$
-declare s attendance_sessions; v_user uuid;
+declare s attendance_sessions; v_entry uuid; v_matric text := regexp_replace(coalesce(p_matric, ''), '\D', '', 'g');
 begin
   select * into s from attendance_sessions where id = p_session;
   if s.id is null or s.closed_at is not null then return jsonb_build_object('status', 'closed'); end if;
   if not is_hoc(s.class_id) then return jsonb_build_object('status', 'not_allowed'); end if;
-  select c.user_id into v_user from claims c join class_list_entries e on e.id = c.entry_id where e.class_id = s.class_id and e.matric = trim(p_matric);
-  if v_user is null then
-    select c.user_id into v_user from claims c join class_list_entries e on e.id = c.entry_id
+  -- anyone on this class's list, claimed or not (students without a phone still count)
+  select id into v_entry from class_list_entries where class_id = s.class_id and matric = v_matric;
+  if v_entry is null then
+    -- or a carryover student approved for this course
+    select c.entry_id into v_entry from claims c join class_list_entries e on e.id = c.entry_id
     join priority_registrations pr on pr.user_id = c.user_id and pr.course_id = s.course_id and pr.class_id = s.class_id and pr.status = 'approved'
-    where e.matric = trim(p_matric);
+    where e.matric = v_matric;
   end if;
-  if v_user is null then return jsonb_build_object('status', 'not_registered'); end if;
-  return private.record(s, v_user, 'typed');
+  if v_entry is null then return jsonb_build_object('status', 'not_registered', 'matric', v_matric); end if;
+  return private.record_entry(s, v_entry, 'typed');
 end $$;
 
 create or replace function public.session_attendance(p_session uuid) returns jsonb
@@ -774,15 +860,26 @@ begin
   select * into s from attendance_sessions where id = p_session;
   if s.id is null then raise exception 'No such session'; end if;
   if not (can_see_class(s.class_id) or s.opened_by = auth.uid()) then raise exception 'Not allowed'; end if;
-  return jsonb_build_object(
-    'session', jsonb_build_object('id', s.id, 'venue', s.venue, 'opened_at', s.opened_at, 'closed_at', s.closed_at,
-                                  'course', (select code from courses where id = s.course_id)),
-    'present', (select count(*) from attendance_records where session_id = s.id),
-    'on_list', (select count(*) from class_list_entries where class_id = s.class_id),
-    'typed', (select count(*) from attendance_records where session_id = s.id and method = 'typed'),
-    'records', coalesce((select jsonb_agg(jsonb_build_object('name', e.surname || ' ' || e.first_name, 'matric', e.matric, 'method', r.method,
-                                  'at', r.scanned_at, 'by', (select display_name from profiles where id = r.scanned_by)) order by r.scanned_at desc)
-                         from attendance_records r left join class_list_entries e on e.id = r.entry_id where r.session_id = s.id), '[]'::jsonb));
+  return (
+    -- the register: the class list plus carryover students the HOC approved for this course
+    with roster as (
+      select e.id, e.surname, e.first_name, e.matric, false as carryover from class_list_entries e where e.class_id = s.class_id
+      union
+      select e.id, e.surname, e.first_name, e.matric, true from priority_registrations pr
+        join claims c on c.user_id = pr.user_id join class_list_entries e on e.id = c.entry_id
+        where pr.course_id = s.course_id and pr.class_id = s.class_id and pr.status = 'approved'
+    )
+    select jsonb_build_object(
+      'session', jsonb_build_object('id', s.id, 'venue', s.venue, 'opened_at', s.opened_at, 'closed_at', s.closed_at,
+                                    'course', (select code from courses where id = s.course_id)),
+      'present', (select count(*) from attendance_records where session_id = s.id),
+      'on_list', (select count(*) from roster),
+      'typed', (select count(*) from attendance_records where session_id = s.id and method = 'typed'),
+      'records', coalesce((select jsonb_agg(jsonb_build_object('name', e.surname || ' ' || e.first_name, 'matric', e.matric, 'method', r.method,
+                                    'at', r.scanned_at, 'by', (select display_name from profiles where id = r.scanned_by)) order by r.scanned_at desc)
+                           from attendance_records r left join class_list_entries e on e.id = r.entry_id where r.session_id = s.id), '[]'::jsonb),
+      'absent', coalesce((select jsonb_agg(jsonb_build_object('name', ro.surname || ' ' || ro.first_name, 'matric', ro.matric, 'carryover', ro.carryover) order by ro.surname, ro.first_name)
+                          from roster ro where not exists (select 1 from attendance_records r where r.session_id = s.id and r.entry_id = ro.id)), '[]'::jsonb)));
 end $$;
 
 -- --- admin overview (counts only)

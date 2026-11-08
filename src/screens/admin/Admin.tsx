@@ -9,16 +9,16 @@ import { useGo } from '../../components/nav';
 
 const NAV: [string, string, string?][] = [['Overview', 'AD01'], ['HOC requests', 'AD02', '5'], ['Class lists', 'AD03', '17'], ['Reports', 'AD04', '12'], ['Contributors', ''], ['Lecturers', ''], ['Courses', '']];
 
-export function Shell({ active, title, sub, children }: { active: string; title: string; sub: string; children: ReactNode }) {
+export function Shell({ active, title, sub, children, nav = NAV, scope }: { active: string; title: string; sub: string; children: ReactNode; nav?: [string, string, string?][]; scope?: ReactNode }) {
   const go = useGo();
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--u-page)', width: '100%' }}>
-      <aside className="stack" style={{ width: 240, background: '#0a0a0a', padding: '24px 16px', gap: 4, flexShrink: 0 }}>
+    <div className="admin-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--u-page)', width: '100%' }}>
+      <aside className="stack admin-nav" style={{ width: 240, background: '#0a0a0a', padding: '24px 16px', gap: 4, flexShrink: 0 }}>
         <div className="row" style={{ gap: 8, padding: '0 8px 24px' }}>
           <span className="wordmark" style={{ fontSize: 22, color: '#fff' }}>Unify</span>
           <span className="pill" style={{ background: 'var(--u-green)', color: '#0a0a0a' }}>ADMIN</span>
         </div>
-        {NAV.map(([n, to, count]) => {
+        {nav.map(([n, to, count]) => {
           const on = n === active;
           return (
             <button key={n} onClick={() => to && go(to)} className="row between" style={{ padding: '10px 12px', borderRadius: 10, background: on ? '#1f1f1f' : 'transparent', color: on ? 'var(--u-green)' : 'rgba(255,255,255,.7)', fontWeight: on ? 600 : 500, fontSize: 14 }}>
@@ -27,13 +27,15 @@ export function Shell({ active, title, sub, children }: { active: string; title:
           );
         })}
       </aside>
-      <main className="stack grow" style={{ padding: '36px 40px', gap: 20, minWidth: 0 }}>
+      <main className="stack grow admin-main" style={{ padding: '36px 40px', gap: 20, minWidth: 0 }}>
         <div className="row between" style={{ alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
           <div className="stack" style={{ gap: 4 }}><h1 className="display" style={{ fontSize: 30 }}>{title}</h1><span className="t-14 faint">{sub}</span></div>
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn--white btn--sm" style={{ width: 'auto' }}>LASU · Faculty of Engineering ▾</button>
-            <button className="btn btn--white btn--sm" style={{ width: 'auto' }}>2026/27 · First semester ▾</button>
-          </div>
+          {scope ?? (
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn btn--white btn--sm" style={{ width: 'auto' }}>LASU · Faculty of Engineering ▾</button>
+              <button className="btn btn--white btn--sm" style={{ width: 'auto' }}>2026/27 · First semester ▾</button>
+            </div>
+          )}
         </div>
         {children}
       </main>

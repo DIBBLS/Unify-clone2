@@ -8,6 +8,57 @@ Every phone screen from the Figma file **Unify MoodBoard**, built in the same st
 
 The *why* behind each screen is in a separate doc: **Unify Learn · Why Each Screen Works This Way** (shared alongside this zip).
 
+## The live app (Supabase + Vercel)
+
+With `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set, the app runs on real accounts and a real database.
+Without them it opens the screen gallery with sample content, as before.
+
+**Live, end to end (tested in a browser against a local Supabase stack):** sign-up and log in, password reset,
+onboarding (department, courses, goal, study rhythm, Box Boy, reminders), home with real name, class, streak, CGPA target and
+semester week, CGPA plan, HOC request → admin approval, class list upload (Excel/CSV, Word, PDF, paste, template) with
+checking and fixing, editing or removing a saved student, class list history, claiming your name with the student-email code,
+"not on the list", "already claimed" (clash), ID-card check, carryover courses, the HOC inbox, lecturer sign-up and HOC
+confirmation, opening attendance, the rotating QR pass, scanning with the phone camera, typing a matric number (works for
+students without a phone), the register with present and absent students, CSV export, my attendance per course, Unify admin
+(overview, HOC requests, class lists, semester calendar), privacy policy, terms, delete account.
+
+**Still sample content (labelled "Sample screen · not live yet" in the live app):** course notes and quizzes, timetable,
+class feed, contributor studio, lecturer timetable / posts / Me. These need the content pipeline next.
+
+### Go live in five steps
+
+1. **Supabase:** create a project → SQL Editor → paste all of [`supabase/setup.sql`](supabase/setup.sql) → Run. Once only.
+2. **Supabase → Authentication:**
+   - *Sign In / Providers → Email:* turn **Confirm email off** until custom SMTP is set up (step 5).
+   - *URL Configuration:* Site URL = your Vercel URL (e.g. `https://unify-learn.vercel.app`); Redirect URLs: add `https://unify-learn.vercel.app/**`.
+   - *Emails → Templates:* in **Magic Link** and **Confirm signup**, show the code, e.g. `<h2>Your Unify code</h2><p>Enter this code in the app: <b>{{ .Token }}</b></p>`.
+     Claiming a name types this 6-digit code; without `{{ .Token }}` students only get a link.
+3. **Vercel:** Add New → Project → import `DIBBLS/Unify-clone2` (framework: Vite). Environment variables:
+   `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from Supabase → Project Settings → API. Never the `service_role` key.
+4. **Make yourself admin:** sign up in the live app, then in the SQL editor:
+   `update public.profiles set role = 'admin' where email = 'you@example.com';`
+   In the app: Me → Open Unify admin → set the semester calendar.
+5. **Email for real students:** Supabase's built-in email only delivers to members of your Supabase team, about 2 an hour.
+   Before students claim their names, connect a sender under *Authentication → Emails → SMTP Settings*
+   (Resend with a domain you own is the cleanest; Brevo works with a single verified sender), then raise the email rate limit
+   under *Rate Limits*. Students who can't get their student email can still be confirmed by ID card (AT13/AT17).
+
+Optional: `VITE_GOOGLE_SIGN_IN=true` shows "Continue with Google" for students once Google is enabled in Supabase.
+
+### Working on it
+
+```bash
+npm install
+cp .env.example .env.local   # fill in the two values, or leave empty for the gallery
+npm run dev                  # http://localhost:3001
+npm test                     # 67 tests: database rules (in-process Postgres), class-list parsing, streaks, setup.sql in sync
+npm run setup-sql            # rebuild supabase/setup.sql after editing the migration or seed
+```
+
+Database rules live in `supabase/migrations/20261108000000_init.sql`: row-level security on every table, and every cross-user
+action (claiming, scanning, settling a clash) in a `security definer` function that checks the caller itself.
+Live screens are in `src/live/`; `src/live/index.ts` lists which screen ids are live.
+
 ---
 
 ## Update · 5 Nov

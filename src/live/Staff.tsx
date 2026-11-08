@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Check, ScanLine, LogOut } from 'lucide-react';
 import { Screen, TabBar, BottomActions } from '../components/chrome';
 import { Button, Card, Checkbox, Display, Label, ListCard, ListRow, Pill } from '../components/ui';
 import { Wordmark } from '../components/brand';
 import { useGo } from '../components/nav';
-import { Note, useAction } from '../components/form';
+import { Note, TextInput, useAction } from '../components/form';
 import { supabase, rpc, friendly } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { SignUpForm } from './Auth';
@@ -135,6 +135,28 @@ export function LiveLecturerHome() {
 
 /* ===================== Unify admin ===================== */
 
+/** The admin frame with live counts in the side nav. */
+function AdminShell({ active, title, sub, children }: { active: string; title: string; sub: string; children: ReactNode }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [label, setLabel] = useState('');
+  useEffect(() => {
+    const load = () => {
+      supabase.from('hoc_requests').select('id', { count: 'exact', head: true }).eq('status', 'open').then(({ count }) => setOpen(count ?? 0));
+      supabase.from('semester').select('label').maybeSingle().then(({ data }) => setLabel((data?.label as string) ?? ''));
+    };
+    load();
+    window.addEventListener('unify-admin-changed', load);
+    return () => window.removeEventListener('unify-admin-changed', load);
+  }, [active]);
+  const nav: [string, string, string?][] = [['Overview', 'AD01'], ['HOC requests', 'AD02', open ? String(open) : undefined], ['Class lists', 'AD03'], ['Back to the app', 'S45']];
+  return (
+    <Shell active={active} title={title} sub={sub} nav={nav}
+      scope={<span className="t-13 w-6 muted" style={{ padding: '8px 0' }}>LASU · Faculty of Engineering{label ? ` · ${label}` : ''}</span>}>
+      {children}
+    </Shell>
+  );
+}
+
 function AdminOnly({ children }: { children: JSX.Element }) {
   const { profile } = useAuth();
   if (!profile) return null;
@@ -158,7 +180,7 @@ export function LiveAdminOverview() {
   const pct = o && o.students_on_lists ? Math.round((o.claimed / o.students_on_lists) * 100) : 0;
   return (
     <AdminOnly>
-      <Shell active="Overview" title="UNIFY ADMIN" sub={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}>
+      <AdminShell active="Overview" title="UNIFY ADMIN" sub={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}>
         {err && <Note>{err}</Note>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16 }}>
           {([[o?.classes ?? '–', 'Classes this session', ''], [o ? `${o.lists_uploaded} / ${o.classes}` : '–', 'Class lists uploaded', o ? `${o.classes - o.lists_uploaded} still waiting` : ''],
@@ -167,8 +189,46 @@ export function LiveAdminOverview() {
           ))}
         </div>
         <div className="row" style={{ gap: 8 }}><SmallBtn dark onClick={() => go('AD02')}>Review HOC requests</SmallBtn><SmallBtn onClick={() => go('AD03')}>Class lists</SmallBtn></div>
-      </Shell>
+        <SemesterCard />
+      </AdminShell>
     </AdminOnly>
+  );
+}
+
+/* The semester calendar: students see "Week 3 of 12" on home once this is set. */
+function SemesterCard() {
+  const [startsOn, setStartsOn] = useState('');
+  const [weeks, setWeeks] = useState('12');
+  const [label, setLabel] = useState('');
+  const [saved, setSaved] = useState(false);
+  const { busy, error, run } = useAction();
+  useEffect(() => {
+    supabase.from('semester').select('label,starts_on,weeks').maybeSingle().then(({ data }) => {
+      if (data) { setLabel(data.label as string); setStartsOn((data.starts_on as string | null) ?? ''); setWeeks(String(data.weeks)); }
+    });
+  }, []);
+  const save = () => run(async () => {
+    const w = Number(weeks);
+    if (!startsOn) throw new Error('Pick the date lectures start.');
+    if (!Number.isInteger(w) || w < 1 || w > 30) throw new Error('Weeks must be between 1 and 30.');
+    const { error: e } = await supabase.from('semester').update({ label: label.trim() || 'Semester', starts_on: startsOn, weeks: w }).eq('id', 1);
+    if (e) throw new Error(friendly(e.message));
+    setSaved(true);
+    window.dispatchEvent(new Event('unify-admin-changed'));
+  });
+  return (
+    <div className="card stack" style={{ padding: 20, gap: 12, maxWidth: 560 }}>
+      <span className="t-16 w-7">Semester calendar</span>
+      <span className="t-13 muted">Students see which week of the semester it is on their home screen. Until a start date is set, the week bar is hidden.</span>
+      <TextInput label="Semester" value={label} onChange={(v) => { setLabel(v); setSaved(false); }} />
+      <div className="row" style={{ gap: 12 }}>
+        <TextInput label="Lectures start on" type="date" value={startsOn} onChange={(v) => { setStartsOn(v); setSaved(false); }} style={{ flex: 1 }} />
+        <TextInput label="Weeks before exams" inputMode="numeric" value={weeks} onChange={(v) => { setWeeks(v.replace(/\D/g, '')); setSaved(false); }} style={{ width: 160 }} />
+      </div>
+      {error && <Note>{error}</Note>}
+      {saved && <Note tone="good">Saved. Students see the new week next time they open the app.</Note>}
+      <div><SmallBtn dark onClick={() => !busy && save()}>{busy ? 'Saving…' : 'Save calendar'}</SmallBtn></div>
+    </div>
   );
 }
 
@@ -180,12 +240,12 @@ export function LiveAdminHocRequests() {
   const load = () => supabase.rpc('admin_hoc_requests').then(({ data }) => { const r = (data ?? []) as Req[]; setReqs(r); setSel((s) => (r.some((x) => x.id === s) ? s : r[0]?.id ?? null)); });
   useEffect(() => { load(); }, []);
   const r = reqs?.find((x) => x.id === sel);
-  const decide = (approve: boolean) => r && run(async () => { await rpc('decide_hoc_request', { p_request: r.id, p_approve: approve }); await load(); });
-  const ago = (iso: string) => { const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600000); return h < 24 ? `${h} hr` : `${Math.round(h / 24)} days`; };
+  const decide = (approve: boolean) => r && run(async () => { await rpc('decide_hoc_request', { p_request: r.id, p_approve: approve }); await load(); window.dispatchEvent(new Event('unify-admin-changed')); });
+  const ago = (iso: string) => { const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600000); return h < 1 ? 'Just now' : h < 24 ? `${h} hr` : `${Math.round(h / 24)} day${Math.round(h / 24) === 1 ? '' : 's'}`; };
   return (
     <AdminOnly>
-      <Shell active="HOC requests" title="HOC REQUESTS" sub="One HOC per class, up to 3 for big classes. Call the confirmer before approving.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 380px', gap: 16, alignItems: 'start' }}>
+      <AdminShell active="HOC requests" title="HOC REQUESTS" sub="One HOC per class, up to 3 for big classes. Call the confirmer before approving.">
+        <div className="admin-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 380px', gap: 16, alignItems: 'start' }}>
           {reqs && reqs.length === 0 ? <p className="t-15 muted">No requests waiting.</p> : (
             <Table cols={['Student', 'Class', 'Confirms', 'Sent', 'Status']} highlight={reqs?.findIndex((x) => x.id === sel)}
               rows={(reqs ?? []).map((x) => [<button onClick={() => setSel(x.id)} className="w-6" style={{ textAlign: 'left' }}>{x.name}</button>, x.class, x.confirmer, ago(x.created_at), x.current_hocs >= 3 ? <Pill tone="bad">Full (3)</Pill> : x.current_hocs ? <Pill tone="warn">Has {x.current_hocs} HOC{x.current_hocs > 1 ? 's' : ''}</Pill> : <Pill>New</Pill>])} />
@@ -201,7 +261,7 @@ export function LiveAdminHocRequests() {
             </div>
           )}
         </div>
-      </Shell>
+      </AdminShell>
     </AdminOnly>
   );
 }
@@ -212,7 +272,7 @@ export function LiveAdminClassLists() {
   const rows = (o?.by_class ?? []).filter((c) => f === 'all' || (f === 'none' ? c.students === 0 : c.clashes > 0));
   return (
     <AdminOnly>
-      <Shell active="Class lists" title="CLASS LISTS" sub="Every class, whether its list is up, and how many students have claimed their name.">
+      <AdminShell active="Class lists" title="CLASS LISTS" sub="Every class, whether its list is up, and how many students have claimed their name.">
         {err && <Note>{err}</Note>}
         <div className="row" style={{ gap: 8 }}>
           <SmallBtn dark={f === 'all'} onClick={() => setF('all')}>All {o?.by_class.length ?? ''}</SmallBtn>
@@ -224,7 +284,7 @@ export function LiveAdminClassLists() {
           c.students ? String(c.students) : '—', c.students ? `${c.claimed} · ${Math.round((c.claimed / c.students) * 100)}%` : '—', c.clashes ? <Pill tone="bad">{c.clashes}</Pill> : '0',
         ])} />
         <span className="t-13 faint">Unify staff see counts and status only. Names and matric numbers stay with each class's HOCs and lecturers.</span>
-      </Shell>
+      </AdminShell>
     </AdminOnly>
   );
 }

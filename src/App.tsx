@@ -107,11 +107,25 @@ function ScreenRoute() {
   const Component = live ?? entry?.Component;
   if (!Component) return <div className="pad t-15" style={{ paddingTop: 40 }}>No screen called {id}. <Link to="/">Go home</Link></div>;
   const showDev = !isLive || new URLSearchParams(location.search).has('dev');
+  // In the live app, screens that aren't wired to real data yet still show their design with sample
+  // content. Label them so nobody mistakes a sample timetable or chat for their own.
+  const sample = isLive && !live && !PUBLIC.has(key);
   return (
     <>
       {showDev && entry && <DevBar id={entry.id} />}
+      {sample && <SampleRibbon />}
       <Component key={key} />
     </>
+  );
+}
+
+function SampleRibbon() {
+  const navigate = useNavigate();
+  return (
+    <div role="note" style={{ position: 'sticky', top: 0, zIndex: 60, width: '100%', maxWidth: 'var(--shell)', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#0a0a0a', color: '#fff', padding: '6px 12px', paddingTop: 'calc(6px + env(safe-area-inset-top))', fontSize: 12, fontWeight: 600 }}>
+      Sample screen · not live yet
+      <button onClick={() => navigate('/', { replace: true })} style={{ background: 'var(--u-green)', color: '#0a0a0a', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>Home</button>
+    </div>
   );
 }
 

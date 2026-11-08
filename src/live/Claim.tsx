@@ -216,7 +216,7 @@ export function LiveNotOnList() {
       <div className="stack pad" style={{ gap: 14 }}>
         <Display size={30}>YOU'RE NOT ON THE LIST YET</Display>
         <p className="t-15 muted">Matric {last?.matric ?? ''} isn't on the {classLabel(klass)} class list. This often happens to direct-entry and transfer students.</p>
-        <Note tone="good">We've asked your HOCs to add you. Come back and claim your name once they do.</Note>
+        <Note tone="good">We've asked your HOCs to add you. You've already proved your student email, so your name is claimed the moment they add you.</Note>
         <ListCard>
           <ListRow title="Wrong class?" sub={`You're set as ${classLabel(klass)}. Change it if that's not right.`} onClick={() => go('S07')} />
         </ListCard>

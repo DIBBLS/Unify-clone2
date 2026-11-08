@@ -57,13 +57,13 @@ export function LiveInbox() {
       <TopBar title={`Inbox · ${label}`} />
       <div className="stack pad" style={{ gap: 12, paddingBottom: 28 }}>
         <Chips>
-          <Chip small on={f === 'all'} onClick={() => setF('all')}>All · {items?.length ?? 0}</Chip>
+          <Chip small on={f === 'all'} onClick={() => setF('all')}>All · {(items?.length ?? 0) + lecturers.length}</Chip>
           <Chip small on={f === 'clash'} onClick={() => setF('clash')}>Clashes · {clashes}</Chip>
-          <Chip small on={f === 'req'} onClick={() => setF('req')}>Requests · {(items?.length ?? 0) - clashes}</Chip>
+          <Chip small on={f === 'req'} onClick={() => setF('req')}>Requests · {(items?.length ?? 0) - clashes + lecturers.length}</Chip>
         </Chips>
         {(err || error) && <Note>{err || error}</Note>}
         {items === null && !err && <p className="t-14 muted">Loading…</p>}
-        {lecturers.length > 0 && f === 'all' && (
+        {lecturers.length > 0 && f !== 'clash' && (
           <>
             <Label>Is this your lecturer?</Label>
             {lecturers.map((l) => (

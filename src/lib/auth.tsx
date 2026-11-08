@@ -6,6 +6,7 @@ export type Role = 'student' | 'lecturer' | 'admin';
 export type Profile = {
   id: string; email: string | null; display_name: string | null; role: Role;
   class_id: string | null; persona: string | null; goal: string | null;
+  study_time: string | null; focus_minutes: number | null; reminders: boolean | null;
 };
 export type ClassInfo = { id: string; department_code: string; level: number; session: string; department_name: string };
 
@@ -21,7 +22,7 @@ type AuthState = {
   recovering: boolean;
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (patch: Partial<Pick<Profile, 'display_name' | 'persona' | 'goal' | 'role'>>) => Promise<void>;
+  updateProfile: (patch: Partial<Pick<Profile, 'display_name' | 'persona' | 'goal' | 'role' | 'study_time' | 'focus_minutes' | 'reminders'>>) => Promise<void>;
 };
 
 const empty: AuthState = {
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!s) { setProfile(null); setKlass(null); setHocOf([]); return; }
     const uid = s.user.id;
     const [{ data: p }, { data: h }] = await Promise.all([
-      supabase.from('profiles').select('id,email,display_name,role,class_id,persona,goal').eq('id', uid).maybeSingle(),
+      supabase.from('profiles').select('id,email,display_name,role,class_id,persona,goal,study_time,focus_minutes,reminders').eq('id', uid).maybeSingle(),
       supabase.from('class_hocs').select('class_id').eq('user_id', uid),
     ]);
     setProfile((p as Profile) ?? null);

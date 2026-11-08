@@ -235,6 +235,10 @@ export function LiveCheckList() {
   const [showAll, setShowAll] = useState(false);
   const { busy, error, run } = useAction();
   const checked = useMemo(() => checkRows(rows), [rows]);
+  const [existing, setExisting] = useState(0);
+  useEffect(() => {
+    if (classId) supabase.from('class_list_entries').select('id', { count: 'exact', head: true }).eq('class_id', classId).then(({ count }) => setExisting(count ?? 0));
+  }, [classId]);
   if (!classId) return <NotHoc />;
   if (!draft) return <Navigate to="/screens/AT01" replace />;
   const flagged = checked.filter((c) => c.issues.length);
@@ -270,12 +274,13 @@ export function LiveCheckList() {
         {!showAll && good.length > 30 && <button className="link-btn" onClick={() => setShowAll(true)}>Show all {good.length}</button>}
         {error && <Note>{error}</Note>}
       </div>
-      <BottomActions hint={skipped > 0 ? `${skipped} row${skipped === 1 ? '' : 's'} without a name or valid matric, or repeated, won't be saved. Fix or remove them first if you need them.` : 'You can still edit the list after saving.'}>
+      <BottomActions hint={skipped > 0 ? `${skipped} row${skipped === 1 ? '' : 's'} without a name or valid matric, or repeated, won't be saved. Fix or remove them first if you need them.`
+        : existing > 0 ? `Your list already has ${existing} students. Nobody is removed: new matric numbers are added, matching ones get these names.` : 'You can still edit the list after saving.'}>
         <Button disabled={busy || toSave.length === 0} onClick={() => run(async () => {
           await rpc<number>('import_class_list', { p_class: classId, p_rows: toSave, p_source: draft?.source ?? 'document' });
           draft = null;
           go('AT04');
-        })}>{busy ? 'Saving…' : `Confirm list · ${toSave.length} students`}</Button>
+        })}>{busy ? 'Saving…' : existing > 0 ? `Add or update ${toSave.length} students` : `Confirm list · ${toSave.length} students`}</Button>
       </BottomActions>
     </Screen>
   );
@@ -285,8 +290,45 @@ export function LiveCheckList() {
 type Entry = { id: string; surname: string; first_name: string; middle_name: string | null; matric: string; reason: string | null };
 type Claim = { entry_id: string; claimed_at: string; method: string };
 type Priority = { registration: string; course: string; name: string; matric: string; from_class: string };
+/* Fix or remove one saved row, from the class list. */
+function StudentEditor({ entry, claimed, onDone, onCancel }: { entry: Entry; claimed: boolean; onDone: () => void; onCancel: () => void }) {
+  const [s, setS] = useState({ surname: entry.surname, first: entry.first_name, middle: entry.middle_name ?? '', matric: entry.matric });
+  const [sure, setSure] = useState(false);
+  const { busy, error, run } = useAction();
+  const save = () => run(async () => {
+    if (!s.surname.trim() || !s.first.trim()) throw new Error('Surname and first name are needed.');
+    if (!/^\d{6,12}$/.test(s.matric)) throw new Error('A matric number should be 6 to 12 digits.');
+    await rpc('edit_student', { p_entry: entry.id, p_surname: s.surname, p_first: s.first, p_middle: s.middle, p_matric: s.matric });
+    onDone();
+  });
+  const remove = () => run(async () => { await rpc('remove_student', { p_entry: entry.id }); onDone(); });
+  return (
+    <div className="stack" style={{ gap: 10, padding: 14, background: 'var(--u-card-2)' }}>
+      <TextInput label="Surname" value={s.surname} onChange={(v) => setS({ ...s, surname: v.toUpperCase() })} />
+      <div className="row" style={{ gap: 10 }}>
+        <TextInput label="First name" value={s.first} onChange={(v) => setS({ ...s, first: v })} style={{ flex: 1 }} />
+        <TextInput label="Middle name" value={s.middle} onChange={(v) => setS({ ...s, middle: v })} style={{ flex: 1 }} />
+      </div>
+      {claimed
+        ? <span className="t-13 muted">Matric {entry.matric} · locked, because this student has claimed their name.</span>
+        : <TextInput label="Matric number" value={s.matric} onChange={(v) => setS({ ...s, matric: v.replace(/\D/g, '') })} inputMode="numeric" maxLength={12} />}
+      {error && <Note>{error}</Note>}
+      <div className="row wrap" style={{ gap: 8 }}>
+        <Button small block={false} disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save'}</Button>
+        <Button small block={false} variant="white" onClick={onCancel}>Cancel</Button>
+        {!claimed && (sure
+          ? <Button small block={false} variant="danger" disabled={busy} onClick={remove}><Trash2 size={14} /> Yes, remove</Button>
+          : <Button small block={false} variant="white" onClick={() => setSure(true)}><Trash2 size={14} color="var(--u-red)" /> Remove</Button>)}
+      </div>
+      <span className="t-12 faint">Every change shows in History with your name.</span>
+    </div>
+  );
+}
+
 export function LiveClassList() {
   const go = useGo();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [rev, setRev] = useState(0);
   const { classId, label } = useHocClass();
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [claims, setClaims] = useState<Map<string, Claim>>(new Map());
@@ -317,7 +359,7 @@ export function LiveClassList() {
       setOthers((o.data ?? []) as Priority[]);
       setHocs(((st.data as { hocs?: string[] } | null)?.hocs ?? []));
     })();
-  }, [classId]);
+  }, [classId, rev]);
   if (!classId) return <NotHoc />;
   if (entries && entries.length === 0) return <Navigate to="/screens/AT01" replace />;
   const claimed = entries?.filter((e) => claims.has(e.id)).length ?? 0;
@@ -340,10 +382,11 @@ export function LiveClassList() {
           {entries === null && <ListRow title="Loading…" />}
           {tab === 'mine' && shown.slice(0, 300).map((e) => {
             const c = claims.get(e.id);
+            if (editing === e.id) return <StudentEditor key={e.id} entry={e} claimed={Boolean(c)} onCancel={() => setEditing(null)} onDone={() => { setEditing(null); setRev((r) => r + 1); }} />;
             return <ListRow key={e.id} title={`${e.surname} ${e.first_name} ${e.middle_name ?? ''}`.trim()}
               sub={`${e.matric}${c ? ` · claimed ${day(c.claimed_at)}${c.method === 'id_check' ? ' by ID card' : ''}` : ''}${e.reason ? ` · ${e.reason}` : ''}`}
               right={clashes.has(e.id) ? <Pill tone="bad">Clash</Pill> : c ? <Pill tone="good">Claimed</Pill> : <Pill>Not yet</Pill>}
-              onClick={clashes.has(e.id) ? () => go('AT15') : undefined} />;
+              onClick={clashes.has(e.id) ? () => go('AT15') : () => setEditing(e.id)} />;
           })}
           {tab === 'mine' && shown.length > 300 && <ListRow title={`…and ${shown.length - 300} more. Search to find someone.`} />}
           {tab === 'other' && (others.length ? others.map((o) => <ListRow key={o.registration} title={o.name} sub={`${o.from_class} · ${o.course} · ${o.matric}`} right={<Pill tone="amber">Priority</Pill>} />)
@@ -396,7 +439,7 @@ export function LiveAddStudent() {
 
 /* ---------- AT06 · history ---------- */
 type Event = { action: string; detail: string | null; at: string; by: string };
-const VERB: Record<string, string> = { uploaded: 'uploaded the class list', added: 'added a student', clash: 'settled a clash', id_check: 'confirmed a student by ID card', priority: 'answered a priority request' };
+const VERB: Record<string, string> = { uploaded: 'uploaded the class list', added: 'added a student', edited: 'fixed a student', removed: 'removed a student', clash: 'settled a clash', id_check: 'confirmed a student by ID card', priority: 'answered a priority request' };
 export function LiveListHistory() {
   const { classId } = useHocClass();
   const [events, setEvents] = useState<Event[] | null>(null);

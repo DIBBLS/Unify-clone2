@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { LiveWelcome, LiveSignUp, LiveLogin, LiveReset, LiveDepartment, LiveCourses, LiveGoal, LivePersona, LivePrivacy, LiveTerms } from './Auth';
+import { LiveWelcome, LiveSignUp, LiveLogin, LiveReset, LiveDepartment, LiveCourses, LiveGoal, LiveRhythm, LivePersona, LivePush, LiveFirstClass, LivePrivacy, LiveTerms } from './Auth';
 import { LiveSetUpList, LiveUploadDocument, LiveTemplate, LivePasteList, LiveCheckList, LiveClassList, LiveAddStudent, LiveListHistory } from './ClassList';
 import { LiveInbox, LiveSettleClash, LiveIdCheck } from './Inbox';
 import { LiveClaim, LiveIsThisYou, LiveOnTheList, LiveListNotUp, LiveNotOnList, LiveAlreadyClaimed, LiveShowIdCard, LivePriorityCourses } from './Claim';
@@ -11,7 +11,7 @@ import { LiveLecturerSignUp, LiveLecturerCourses, LiveLecturerHome, LiveAdminOve
     Every other screen keeps showing its design with sample content. */
 export const LIVE_SCREENS: Record<string, ComponentType> = {
   // sign up, log in, onboarding
-  S05: LiveWelcome, S06: LiveSignUp, LOGIN: LiveLogin, RESET: LiveReset, S07: LiveDepartment, S08: LiveCourses, S09: LiveGoal, S11: LivePersona,
+  S05: LiveWelcome, S06: LiveSignUp, LOGIN: LiveLogin, RESET: LiveReset, S07: LiveDepartment, S08: LiveCourses, S09: LiveGoal, S10: LiveRhythm, S11: LivePersona, S12: LivePush, S13: LiveFirstClass,
   PRIVACY: LivePrivacy, TERMS: LiveTerms,
   // home, me, settings, progress
   S14: LiveHome, S19: LiveHome, S20: LiveHome, S58: LiveHome, S45: LiveMe, S46: LiveMe, S48: LiveSettings, S15: LiveCgpa,

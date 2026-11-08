@@ -1,5 +1,5 @@
 /* Turning an uploaded class list into a table or text. Each reader is loaded only when that kind of file arrives. */
-import { linesFromPdfItems, looksLikeMatric } from './classList';
+import { linesFromPdfItems, looksLikeMatric, trimToTable } from './classList';
 
 export type ReadResult = { kind: 'table'; matrix: unknown[][]; note: string } | { kind: 'text'; text: string; note: string };
 
@@ -23,7 +23,7 @@ export async function readClassListFile(file: File): Promise<ReadResult> {
       if (!best || score > best.score) best = { name, matrix, score };
     }
     if (!best || best.matrix.length === 0) throw new Error('That file looks empty.');
-    return { kind: 'table', matrix: best.matrix, note: wb.SheetNames.length > 1 ? `from sheet "${best.name}"` : '' };
+    return { kind: 'table', matrix: trimToTable(best.matrix), note: wb.SheetNames.length > 1 ? `from sheet "${best.name}"` : '' };
   }
   if (e === 'docx') {
     const mammoth = await import('mammoth');
@@ -32,7 +32,7 @@ export async function readClassListFile(file: File): Promise<ReadResult> {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const tables = [...doc.querySelectorAll('table')].map((t) => [...t.querySelectorAll('tr')].map((tr) => [...tr.querySelectorAll('td,th')].map((c) => c.textContent ?? '')));
     const table = tables.sort((a, b) => matricCount(b) - matricCount(a))[0];
-    if (table && matricCount(table) > 0) return { kind: 'table', matrix: table, note: tables.length > 1 ? 'from the biggest table in the document' : '' };
+    if (table && matricCount(table) > 0) return { kind: 'table', matrix: trimToTable(table), note: tables.length > 1 ? 'from the biggest table in the document' : '' };
     const { value: text } = await mammoth.extractRawText({ arrayBuffer: buf });
     return { kind: 'text', text, note: '' };
   }
