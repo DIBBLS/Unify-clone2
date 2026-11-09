@@ -154,5 +154,79 @@ a { color: inherit; text-decoration: none; }
   .admin-split { grid-template-columns: minmax(0, 1fr) !important; }
   .admin-main table { font-size: 13px; }
   .admin-main th, .admin-main td { padding: 10px 12px !important; }
-  .admin-main .card:has(> table) { overflow-x: auto !important; }
 }
+/* admin tables scroll inside their card when the screen is narrower than the table */
+.admin-main .card:has(> table) { overflow-x: auto !important; }
+.admin-main table { min-width: 560px; }
+@media (max-width: 1100px) { .admin-split { grid-template-columns: minmax(0, 1fr) !important; } }
+
+/* ---------- Page frame: phones, tablets, laptops (components/frame.tsx) ---------- */
+/* Phones: the wrappers vanish and the phone design runs edge to edge. */
+.app-frame, .app-main, .solo { display: contents; }
+.app-nav { display: none; }
+
+/* Tablets and up */
+@media (min-width: 640px) {
+  .app-frame { --shell: 100%; --gutter: 24px; }   /* tablets: the full width, with columns where they help */
+  /* sign-up and onboarding: the phone design as a card on a branded backdrop */
+  .solo {
+    display: block; min-height: 100dvh; padding: 32px 16px;
+    background: radial-gradient(900px 520px at 50% -8%, rgba(80, 255, 144, .38), rgba(80, 255, 144, 0) 70%), #ebe9e3;
+  }
+  .solo .screen {
+    min-height: min(calc(100dvh - 64px), 932px);
+    border-radius: 36px; overflow: clip;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 24px 60px rgba(10, 10, 10, .12);
+  }
+}
+
+/* Laptops: side menu, app screens on a rounded canvas */
+@media (min-width: 1000px) {
+  .app-frame {
+    display: flex; align-items: flex-start; min-height: 100dvh; background: #ebe9e3;
+    --shell: 760px; --nav-w: 248px; --gutter: 32px;
+  }
+  .app-nav {
+    display: flex; flex-direction: column; gap: 10px; flex: none;
+    position: sticky; top: 0; height: 100dvh; width: var(--nav-w); overflow-y: auto;
+    padding: 24px 14px 16px; background: #fff; border-right: 1px solid var(--u-border);
+  }
+  .app-main { display: block; flex: 1; min-width: 0; padding: 24px 32px 32px; }
+  .app-main .screen {
+    min-height: calc(100dvh - 56px); border-radius: 28px; overflow: clip;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 16px 48px rgba(10, 10, 10, .07);
+  }
+  .app-frame .tabbar { display: none !important; }
+  .app-frame .screen--tabs { padding-bottom: 32px; }
+  .app-frame .screen--tabs .bottom-actions { bottom: 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  /* forms and main buttons stay a readable width on a wide canvas */
+  .app-main .bottom-actions { align-items: center; }
+  .app-main .bottom-actions > .btn, .app-main .bottom-actions > button.btn { width: 100%; max-width: 480px; }
+  .app-main label.stack:has(> .input) { max-width: 560px; }
+}
+@media (min-width: 1360px) {
+  .app-frame { --shell: 860px; --nav-w: 264px; }
+}
+
+.app-nav__label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--u-text-3); padding: 0 12px 6px; }
+.app-nav__item {
+  display: flex; align-items: center; gap: 12px; width: 100%; height: 42px; padding: 0 12px;
+  border-radius: 14px; font-size: 14.5px; font-weight: 600; color: #555; text-align: left;
+}
+.app-nav__item:hover { background: #f2f1ec; color: #0a0a0a; }
+.app-nav__item.is-on { background: var(--u-green); color: #0a0a0a; }
+.app-nav__item:focus-visible, .app-nav__out:focus-visible { outline: 2px solid #0a0a0a; outline-offset: 2px; }
+.app-nav__me { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; background: var(--u-page); }
+.app-nav__out { width: 34px; height: 34px; flex: none; border-radius: 17px; display: grid; place-items: center; color: var(--u-red); }
+.app-nav__out:hover { background: #fff; }
+
+/* Content that becomes columns when there's room (home cards, course lists) */
+.auto-grid { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 640px) {
+  .auto-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+  .auto-grid > .span-all { grid-column: 1 / -1; }
+}
+
+/* Small phones: the home hero's Box Boy gives the greeting a little more room */
+@media (max-width: 379px) { .hero-boxboy { transform: scale(.9); transform-origin: top right; } }
+@media (max-width: 339px) { .hero-boxboy { transform: scale(.8); } }

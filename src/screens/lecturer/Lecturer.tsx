@@ -63,13 +63,14 @@ function LecIntro({ step, eyebrow, title, body, visual, next, cta = 'Next', type
   );
 }
 
+const fluid = (px: number) => `min(${px}px, ${(px / 3.9).toFixed(2)}vw)`; // design size at 390px, smaller below
 function CourseTile({ dept, num, level, featured }: { dept: string; num: string; level: string; featured?: boolean }) {
-  const s = featured ? 124 : 104;
+  const s = fluid(featured ? 124 : 104);
   return (
     <div className="stack" style={{ alignItems: 'center', gap: 12, marginTop: featured ? 0 : 10 }}>
       <div className="stack" style={{ width: s, height: s, borderRadius: 28, alignItems: 'center', justifyContent: 'center', background: featured ? 'var(--u-green)' : '#1c1c1c', border: featured ? 0 : '1px solid rgba(255,255,255,.12)' }}>
         <span className="w-7" style={{ fontSize: featured ? 14 : 12, color: featured ? 'rgba(10,10,10,.7)' : 'rgba(255,255,255,.6)' }}>{dept}</span>
-        <span className="display" style={{ fontSize: featured ? 34 : 28, color: featured ? '#0a0a0a' : 'var(--u-green)' }}>{num}</span>
+        <span className="display" style={{ fontSize: fluid(featured ? 34 : 28), color: featured ? '#0a0a0a' : 'var(--u-green)' }}>{num}</span>
       </div>
       <span className="t-12 w-6" style={{ color: 'rgba(255,255,255,.55)' }}>{level}</span>
     </div>
@@ -79,7 +80,7 @@ function CourseTile({ dept, num, level, featured }: { dept: string; num: string;
 export const L01aWorkspace = () => (
   <LecIntro step={0} eyebrow="01 · YOUR WORKSPACE" title="EVERY COURSE YOU TEACH. UNDER ONE ROOF." body="Your courses across departments and levels, organised in one place and always within reach." next="L01b"
     visual={<div className="stack" style={{ alignItems: 'center', gap: 22 }}>
-      <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}><CourseTile dept="MEE" num="202" level="200L" /><CourseTile dept="MEE" num="301" level="300L" featured /><CourseTile dept="ECE" num="311" level="300L" /></div>
+      <div className="row" style={{ gap: fluid(14), alignItems: 'flex-start' }}><CourseTile dept="MEE" num="202" level="200L" /><CourseTile dept="MEE" num="301" level="300L" featured /><CourseTile dept="ECE" num="311" level="300L" /></div>
       <span className="t-13 w-5" style={{ color: 'rgba(255,255,255,.45)' }}>Mechanical · Electrical · Chemical</span>
     </div>} />
 );
@@ -118,8 +119,9 @@ export function L01Welcome() {
       <div className="stack pad" style={{ gap: 10, paddingTop: 40 }}>
         <Display size={44}>{'A NEW WAY TO MANAGE YOUR TEACHING.'}</Display>
         <div style={{ position: 'relative', alignSelf: 'center', marginTop: 20 }}>
-          <BoxBoy pose="readingStanding" width={210} />
-          <Bubble style={{ position: 'absolute', top: -6, right: -78 }}>Let's begin!</Bubble>
+          <BoxBoy pose="readingStanding" width={210} style={{ width: fluid(210) }} />
+          {/* hangs off Box Boy's right, but never past the screen edge on small phones */}
+          <Bubble style={{ position: 'absolute', top: -6, right: 'calc(-1 * min(78px, 50vw - 117px))' }}>Let's begin!</Bubble>
         </div>
         <span className="t-15 w-5">Your courses, classes and records in one place.</span>
       </div>

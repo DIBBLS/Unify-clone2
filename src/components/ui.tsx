@@ -5,7 +5,8 @@ type Div = { children?: ReactNode; className?: string; style?: CSSProperties; on
 
 /* ---------- Text ---------- */
 export function Display({ children, size = 40, color, style, className = '' }: Div & { size?: number; color?: string }) {
-  return <h1 className={`display ${className}`} style={{ fontSize: size, color, ...style }}>{children}</h1>;
+  // Designed at 390px wide: scale down on smaller phones, never up.
+  return <h1 className={`display ${className}`} style={{ fontSize: `min(${size}px, ${(size / 3.9).toFixed(2)}vw)`, color, ...style }}>{children}</h1>;
 }
 
 export function Label({ children, style }: Div) {

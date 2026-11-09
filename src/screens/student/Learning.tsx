@@ -454,7 +454,7 @@ export function S30QuizNumber() {
   const press = (k: string) => setVal((v) => (k === '⌫' ? v.slice(0, -1) : k === '.' && v.includes('.') ? v : (v + k).slice(0, 8)));
   return (
     <QuizShell keypad current={6} answered={5} time="09:12" bottom={
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)', zIndex: 20 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 'calc(50% + var(--nav-w) / 2)', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)', zIndex: 20 }}>
         <div className="row" style={{ gap: 10, padding: '0 24px 12px' }}><Button variant="white">Back</Button><Button>Next</Button></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, padding: '8px 6px calc(10px + env(safe-area-inset-bottom))', background: '#d6d6d1' }}>
           {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'].map((k) => <button key={k} onClick={() => press(k)} style={{ height: 46, borderRadius: 8, background: '#fff', fontSize: 20, fontWeight: 500 }}>{k}</button>)}
@@ -484,7 +484,7 @@ export function S31QuizMaths() {
   const op = (k: string) => /[÷×−+()]|xʸ|√x|a⁄b|π|ρ|×10ⁿ/.test(k);
   return (
     <QuizShell keypad current={7} answered={6} time="09:12" bottom={
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)', zIndex: 20 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 'calc(50% + var(--nav-w) / 2)', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)', zIndex: 20 }}>
         <div className="row" style={{ gap: 10, padding: '0 24px 12px' }}><Button variant="white">Back</Button><Button>Next</Button></div>
         <div className="stack" style={{ gap: 7, padding: '8px 6px calc(10px + env(safe-area-inset-bottom))', background: '#d6d4ce' }}>
           <div className="row" style={{ gap: 6 }}>{MATH_TABS.map((t) => <button key={t} onClick={() => setTab(t)} className="t-15 w-7" style={{ flex: 1, height: 34, borderRadius: 10, background: t === tab ? '#0a0a0a' : '#c4c2bb', color: t === tab ? '#fff' : '#0a0a0a' }}>{t}</button>)}</div>

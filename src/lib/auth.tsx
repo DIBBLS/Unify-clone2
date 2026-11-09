@@ -84,7 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthState>(() => ({
     ready, session, profile, klass, hocOf, recovering,
     refresh: () => load(session),
-    signOut: async () => { await supabase.auth.signOut(); setRecovering(false); },
+    signOut: async () => {
+      setRecovering(false);
+      const { error } = await supabase.auth.signOut().catch((e: Error) => ({ error: e }));
+      if (error) {
+        // The server no longer knows this session (expired, revoked, password changed elsewhere, account
+        // deleted). Log out on this device anyway: forget the saved session and start the app fresh.
+        try { for (const k of Object.keys(localStorage)) if (/^sb-.+-auth-token/.test(k)) localStorage.removeItem(k); } catch { /* storage blocked */ }
+        window.location.replace('/');
+      }
+    },
     updateProfile: async (patch) => {
       if (!session) return;
       const { error } = await supabase.from('profiles').update(patch).eq('id', session.user.id);

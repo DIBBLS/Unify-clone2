@@ -57,8 +57,9 @@ export function TabBar({ active, role = 'student', classBadge = 0 }: { active: T
   const go = useGo();
   return (
     <nav
+      className="tabbar"
       style={{
-        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        position: 'fixed', bottom: 0, left: 'calc(50% + var(--nav-w) / 2)', transform: 'translateX(-50%)',
         width: '100%', maxWidth: 'var(--shell)', height: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom))',
         background: '#fff', borderTop: '1px solid var(--u-border)',
         display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start', padding: '11px 12px 0', zIndex: 30,
@@ -106,7 +107,7 @@ export function Sheet({ children, height }: { children: ReactNode; height?: numb
       <div
         className="stack"
         style={{
-          position: 'fixed', left: '50%', bottom: 0, transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)',
+          position: 'fixed', left: 'calc(50% + var(--nav-w) / 2)', bottom: 0, transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)',
           minHeight: height, background: '#fff', borderRadius: '32px 32px 0 0', padding: '12px 16px calc(24px + env(safe-area-inset-bottom))', gap: 14, zIndex: 41,
         }}
       >

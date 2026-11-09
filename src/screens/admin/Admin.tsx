@@ -73,10 +73,10 @@ export function AD01Overview() {
   ];
   return (
     <Shell active="Overview" title="GOOD MORNING, TEAM" sub="Thursday 6 November · Week 2 of 12">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16 }}>
         {kpis.map(([v, l, s, warn]) => <div key={l} className="card stack" style={{ padding: 20, gap: 6 }}><span className="display" style={{ fontSize: 32 }}>{v}</span><span className="t-14 w-6">{l}</span><span className="t-12" style={{ color: warn ? 'var(--u-warn-ink)' : '#8a8a8a' }}>{s}</span></div>)}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 16, alignItems: 'start' }}>
+      <div className="admin-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 400px', gap: 16, alignItems: 'start' }}>
         <div className="card stack" style={{ padding: 24, gap: 4 }}>
           <span className="label" style={{ fontSize: 12, marginBottom: 8 }}>Needs you today</span>
           {needs.map(([tag, tone, t, s, a, to]) => (
@@ -106,7 +106,7 @@ export function AD02HocRequests() {
   const [checks, setChecks] = useState([true, true, false]);
   return (
     <Shell active="HOC requests" title="HOC REQUESTS" sub="Students asking for HOC tools. One HOC per class, up to 3 for big classes.">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 16, alignItems: 'start' }}>
+      <div className="admin-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 380px', gap: 16, alignItems: 'start' }}>
         <Table cols={['Student', 'Class', 'Confirms', 'Sent', 'Status']} highlight={0} rows={[
           ['Joshua Olotuche', '300L ECE', 'Level adviser', '2 days', <Pill tone="warn">Has 2 HOCs</Pill>],
           ['Mariam Lawal', '100L CHE', 'Level adviser', '1 day', <Pill>New</Pill>],
@@ -137,7 +137,7 @@ export function AD03ClassLists() {
   const [f, setF] = useState('All 48');
   return (
     <Shell active="Class lists" title="CLASS LISTS" sub="Every class, whether its list is up, and how many students have claimed their name.">
-      <div className="row" style={{ gap: 8 }}>{['All 48', 'No list · 17', 'Open clashes · 4'].map((x) => <SmallBtn key={x} dark={x === f} onClick={() => setF(x)}>{x}</SmallBtn>)}</div>
+      <div className="row wrap" style={{ gap: 8 }}>{['All 48', 'No list · 17', 'Open clashes · 4'].map((x) => <SmallBtn key={x} dark={x === f} onClick={() => setF(x)}>{x}</SmallBtn>)}</div>
       <Table cols={['Class', 'HOCs', 'List', 'Students', 'Claimed', 'Clashes', '']} rows={[
         ['300L ECE', 'Femi O., Tolu A.', <Pill tone="good">Uploaded</Pill>, '312', '241 · 77%', <Pill tone="bad">1</Pill>, <SmallBtn>Open</SmallBtn>],
         ['300L MEE', 'Kunle B.', <Pill tone="good">Uploaded</Pill>, '248', '176 · 71%', '0', <SmallBtn>Open</SmallBtn>],
@@ -156,7 +156,7 @@ export function AD03ClassLists() {
 export function AD04Reports() {
   return (
     <Shell active="Reports" title="NOTE REPORTS" sub="What students flagged in the notes, and who is fixing it.">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 16, alignItems: 'start' }}>
+      <div className="admin-split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 380px', gap: 16, alignItems: 'start' }}>
         <Table cols={['Where', 'Problem', 'Students', 'Contributor', 'Age', 'Status']} highlight={0} rows={[
           ['MEE 301 · Wk 2 · Topic 1', 'Something looks wrong', '7', 'Tobi A.', '4 days', <Pill tone="warn">With contributor</Pill>],
           ['ECE 305 · Wk 1 · Topic 2', "Image doesn't load", '3', 'Ifeoluwa S.', '3 days', <Pill>New</Pill>],

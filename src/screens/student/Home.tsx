@@ -29,7 +29,7 @@ export function HomeHero({ target, hidden, week = student.semesterWeek, weeks = 
         </span>
       </div>
       {banner}
-      <Display size={34} style={{ marginTop: 14, maxWidth: 300 }}>{`${greeting()},\n${name.toUpperCase()}.`}</Display>
+      <Display size={34} style={{ marginTop: 14, maxWidth: 'min(300px, calc(100% - 118px))' }}>{`${greeting()},\n${name.toUpperCase()}.`}</Display>
       <div className="stack" style={{ gap: 10, marginTop: 10 }}>
         <span className="eyebrow" style={{ alignSelf: 'flex-start', background: '#101714', color: 'var(--u-green)', borderRadius: 15, padding: '8px 12px', fontSize: 11 }}>
           {classText}
@@ -38,7 +38,7 @@ export function HomeHero({ target, hidden, week = student.semesterWeek, weeks = 
         {week != null && <SemesterWeek week={week} total={weeks} />}
       </div>
       {/* Box Boy holds the target sign (the sign is code, so the number is live) */}
-      <button onClick={() => go('S15')} style={{ position: 'absolute', right: 8, top: 54, width: 123 }} aria-label="Edit target">
+      <button className="hero-boxboy" onClick={() => go('S15')} style={{ position: 'absolute', right: 8, top: 54, width: 123 }} aria-label="Edit target">
         <BoxBoy pose="targetSign" width={123} />
         <span className="stack" style={{ position: 'absolute', left: 10, top: 70, width: 100, background: '#101714', borderRadius: 16, padding: '6px 10px', alignItems: 'center' }}>
           <span className="t-12 w-7" style={{ color: '#fbbf24', fontSize: 10 }}>Your target</span>
@@ -99,7 +99,7 @@ export function CoursesList() {
         <span className="display" style={{ fontSize: 18 }}>My courses</span>
         <button className="t-13 w-7" style={{ color: 'var(--u-good-2)' }} onClick={() => go('S08')}>+ Add course</button>
       </div>
-      {courses.map((c) => <CourseCard key={c.code} {...c} onClick={() => go('S23')} />)}
+      <div className="auto-grid">{courses.map((c) => <CourseCard key={c.code} {...c} onClick={() => go('S23')} />)}</div>
     </>
   );
 }

@@ -76,6 +76,7 @@ export function LiveHome() {
     <Screen tabs>
       <HomeHero target={target} name={firstName(profile, 'there')} week={sem.week} weeks={sem.weeks} classText={klass ? `${klass.department_code} · ${klass.level}L` : 'Choose your department in Me'} streak={streak.now} banner={banner || undefined} />
       <HomeSheet>
+        <div className="auto-grid">
         {claim === null && (
           <Card pad={16} gap={6} onClick={() => go('AT07')} style={{ border: '1.5px solid #0a0a0a' }}>
             <div className="row between"><span className="t-15 w-7">Claim your name for attendance</span><Arrow /></div>
@@ -94,6 +95,7 @@ export function LiveHome() {
             <span className="t-13 muted">See exactly what you need each semester to finish where you want.</span>
           </Card>
         )}
+        </div>
         <ContinueCard />
         <div className="row between" style={{ marginTop: 6 }}>
           <span className="display" style={{ fontSize: 18 }}>My courses</span>
@@ -101,6 +103,7 @@ export function LiveHome() {
         </div>
         {courses === null && <p className="t-14 muted">Loading…</p>}
         {courses?.length === 0 && <Note tone="warn">Your class's courses haven't been added yet.</Note>}
+        <div className="auto-grid">
         {courses?.map((c) => (
           <Card key={c.id} pad="14px 12px" gap={4} onClick={() => go('S23')} style={{ borderRadius: 20 }}>
             <div className="row" style={{ gap: 12 }}>
@@ -110,6 +113,7 @@ export function LiveHome() {
             </div>
           </Card>
         ))}
+        </div>
       </HomeSheet>
       <TabBar active="home" />
     </Screen>

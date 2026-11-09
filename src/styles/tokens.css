@@ -47,7 +47,8 @@
   --r-sheet: 32px;
   --btn-h: 55px;
   --tap: 48px;
-  --shell: 430px;              /* phone frame width */
+  --shell: 430px;              /* phone frame width; wider for app screens on tablets and laptops (see .app-frame) */
+  --nav-w: 0px;                /* side menu width on laptops; fixed bars centre on the space beside it */
   --gutter: 16px;
   --tabbar-h: 84px;
 }

@@ -274,7 +274,7 @@ export function LiveAdminClassLists() {
     <AdminOnly>
       <AdminShell active="Class lists" title="CLASS LISTS" sub="Every class, whether its list is up, and how many students have claimed their name.">
         {err && <Note>{err}</Note>}
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row wrap" style={{ gap: 8 }}>
           <SmallBtn dark={f === 'all'} onClick={() => setF('all')}>All {o?.by_class.length ?? ''}</SmallBtn>
           <SmallBtn dark={f === 'none'} onClick={() => setF('none')}>No list · {o?.by_class.filter((c) => c.students === 0).length ?? ''}</SmallBtn>
           <SmallBtn dark={f === 'clash'} onClick={() => setF('clash')}>Open clashes · {o?.by_class.filter((c) => c.clashes > 0).length ?? ''}</SmallBtn>

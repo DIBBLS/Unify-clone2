@@ -6,11 +6,16 @@ import { LIVE_SCREENS } from './live';
 import { Wordmark } from './components/brand';
 import { AuthProvider, useAuth } from './lib/auth';
 import { isLive } from './lib/supabase';
+import { AppFrame, Solo } from './components/frame';
 
 /* Routes
    /              live: sends you to welcome, onboarding or home. Preview: the gallery.
    /gallery       every screen, grouped like the Figma sections (always available)
    /screens/:id   one screen. In live mode, screens other than the welcome/sign-in ones need a session. */
+
+/** Sign-up and onboarding: shown as a centred phone card on tablets and laptops, with no side menu. */
+const SOLO = new Set(['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08', 'S09', 'S10', 'S11', 'S12', 'S13', 'S22',
+  'LOGIN', 'RESET', 'TERMS', 'PRIVACY', 'L00', 'L01A', 'L01B', 'L01C', 'L01', 'L02', 'L03', 'L04', 'L05', 'L06']);
 
 /** Screens you can open without being signed in. */
 const PUBLIC = new Set(['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'LOGIN', 'RESET', 'TERMS', 'PRIVACY', 'L00', 'L01a', 'L01b', 'L01c', 'L01', 'L02']);
@@ -110,11 +115,12 @@ function ScreenRoute() {
   // In the live app, screens that aren't wired to real data yet still show their design with sample
   // content. Label them so nobody mistakes a sample timetable or chat for their own.
   const sample = isLive && !live && !PUBLIC.has(key);
+  const screen = <>{sample && <SampleRibbon />}<Component key={key} /></>;
+  const upper = key.toUpperCase();
   return (
     <>
       {showDev && entry && <DevBar id={entry.id} />}
-      {sample && <SampleRibbon />}
-      <Component key={key} />
+      {entry?.wide ? screen : SOLO.has(upper) ? <Solo>{screen}</Solo> : <AppFrame screen={upper}>{screen}</AppFrame>}
     </>
   );
 }

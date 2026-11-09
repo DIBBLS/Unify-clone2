@@ -73,7 +73,7 @@ export function S60HeadOfClassCourse() {
   return (
     <>
       <S23CourseWeeks />
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)', padding: '0 16px calc(16px + env(safe-area-inset-bottom))', zIndex: 25 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 'calc(50% + var(--nav-w) / 2)', transform: 'translateX(-50%)', width: '100%', maxWidth: 'var(--shell)', padding: '0 16px calc(16px + env(safe-area-inset-bottom))', zIndex: 25 }}>
         <Card tone="dark" pad={16} gap={8}>
           <span className="eyebrow" style={{ color: 'var(--u-green)', fontSize: 11 }}>You're the HOC</span>
           <div className="row" style={{ gap: 10 }}>
