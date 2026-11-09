@@ -42,17 +42,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async (s: Session | null) => {
     if (!s) { setProfile(null); setKlass(null); setHocOf([]); return; }
     const uid = s.user.id;
+    // One round trip for the profile and its class (plus the HOC check alongside): this runs on every app open.
     const [{ data: p }, { data: h }] = await Promise.all([
-      supabase.from('profiles').select('id,email,display_name,role,class_id,persona,goal,study_time,focus_minutes,reminders').eq('id', uid).maybeSingle(),
+      supabase.from('profiles')
+        // profiles and classes are linked twice (class_id, and HOCs through class_hocs): name the class_id link
+        .select('id,email,display_name,role,class_id,persona,goal,study_time,focus_minutes,reminders,classes!profiles_class_id_fkey(id,department_code,level,session,departments(name))')
+        .eq('id', uid).maybeSingle(),
       supabase.from('class_hocs').select('class_id').eq('user_id', uid),
     ]);
-    setProfile((p as Profile) ?? null);
+    type Embedded = { id: string; department_code: string; level: number; session: string; departments?: { name: string } | { name: string }[] | null };
+    const row = p as (Profile & { classes?: Embedded | Embedded[] | null }) | null;
+    const k = Array.isArray(row?.classes) ? row?.classes[0] : row?.classes;
+    const dep = k?.departments;
+    if (row) delete row.classes;
+    // set together, so screens never see a profile with a class but no class details
+    setProfile(row ?? null);
     setHocOf((h ?? []).map((r: { class_id: string }) => r.class_id));
-    if (p?.class_id) {
-      const { data: k } = await supabase.from('classes').select('id,department_code,level,session,departments(name)').eq('id', p.class_id).maybeSingle();
-      const dep = (k as unknown as { departments?: { name: string } | { name: string }[] } | null)?.departments;
-      setKlass(k ? { id: k.id, department_code: k.department_code, level: k.level, session: k.session, department_name: Array.isArray(dep) ? dep[0]?.name : dep?.name ?? k.department_code } : null);
-    } else setKlass(null);
+    setKlass(k ? { id: k.id, department_code: k.department_code, level: k.level, session: k.session, department_name: (Array.isArray(dep) ? dep[0]?.name : dep?.name) ?? k.department_code } : null);
   }, []);
 
   useEffect(() => {
